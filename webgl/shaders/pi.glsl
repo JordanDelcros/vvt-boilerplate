@@ -1,0 +1,7 @@
+#ifndef PI
+#define PI 3.1415926535897932384626433832795
+#endif
+
+#ifndef HALF_PI
+#define HALF_PI 1.5707963267948966
+#endif

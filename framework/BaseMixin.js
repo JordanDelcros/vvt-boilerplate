@@ -1,0 +1,38 @@
+import { Debug, Audio } from "#framework";
+import { Object3D } from "three";
+
+export default ( Base ) => class extends Base {
+	constructor( ...parameters ){
+
+		super(...parameters);
+
+		if( this.debug ){
+
+			this.debugFolder = Debug.addFolder({ title: this.constructor.name });
+			this.debug(this.debugFolder);
+
+		}
+
+	}
+	add( object, options ){
+
+		if( object instanceof Object3D === false ) object = new object(options);
+
+		super.add(object);
+
+		return object;
+
+	}
+	useAudio( target = this, options = {} ){
+
+		return Audio.createEmitter(this, options);
+
+	}
+	dispose(){
+
+		this.debugFolder?.dispose();
+
+		super.dispose?.();
+
+	}
+}
