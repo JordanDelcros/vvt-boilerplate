@@ -29,12 +29,12 @@ export default class WebGL {
 
 		Renderer.setScene(this.scene);
 
+		Renderer.camera.position.set(0, 0, 10);
+
 		Timer.add(this.update.bind(this));
 
 	}
 	update( currentTime, deltaTime ){
-
-		Renderer.camera.position.set(0, 0, 10);
 
 		Renderer.update(currentTime, deltaTime);
 
