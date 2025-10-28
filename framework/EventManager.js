@@ -87,15 +87,13 @@ export default class EventManager {
 
 			for( event of EVENTS ){
 
-				const event = EVENTS[index];
-
 				if(
 					(target === event.target && type === event.type && action === event.action ) ||// match action
 					(target === event.target && type === event.type && action === undefined ) ||// match type
 					(target === event.target && type === undefined && action === undefined ) // Match target
 				){
 
-					EVENTS[index]();
+					event.action();
 
 				}
 

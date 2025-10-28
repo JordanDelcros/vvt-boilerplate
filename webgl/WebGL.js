@@ -1,7 +1,6 @@
-import { Assets, Renderer, Timer } from "#framework";
-import { Object3D, Quaternion, NeutralToneMapping, RepeatWrapping } from "three";
-import Store from "#app/Store.js";
-import Levels from "/public/data/levels.js";
+import { Assets, Audio, Configurator, Input, Renderer, Timer } from "#framework";
+import { Object3D, Quaternion, NeutralToneMapping, RepeatWrapping, LinearSRGBColorSpace } from "three";
+import MainScene from "#webgl/components/main-scene";
 
 const DUMMY = new Object3D();
 const QUATERNION = new Quaternion();
@@ -10,66 +9,43 @@ export default class WebGL {
 	constructor( canvas ){
 
 		Renderer.setup(canvas);
-		Renderer.instance.sortObjects = false;
-		Renderer.instance.setClearColor(0xFFFFFF, 1);
-		Renderer.instance.toneMapping = NeutralToneMapping;
-		Renderer.instance.toneMappingExposure = 1;
+		Renderer.instance.setClearColor(0x000000, 1);
+		Renderer.instance.outputColorSpace = LinearSRGBColorSpace;
 
+		Audio.setup();
+		Input.setup();
 		Timer.setup();
 
-		this.preload()
-			.then(async () => {
+		if( Configurator.active ){
 
-				Timer.add(this.update.bind(this));
-
-			})
-			.catch(( error ) => {
-
-				console.error(error);
-
-			});
-
-	}
-	async preload(){
-
-		await Assets.setup();
-
-		const promises = [
-			// Assets.load("/fonts/caveat-regular.woff2"),
-			Assets.load("/maps/environment.exr"),
-			Assets.load("/maps/blue-noise.png", { wrapS: RepeatWrapping, wrapT: RepeatWrapping }),
-			Assets.loadSound("/audio/sounds/packed-sounds")
-		];
-
-		// const localizedData = Assets.get("data");
-
-		for( const level of Levels.levels ){
-
-			for( const layer of level.layers ){
-
-				promises.push(Assets.load(layer.image));
-
-			}
+			// Add some top-level confs here
 
 		}
 
-		await Promise.all(promises);
+	}
+	run(){
 
-		Assets.dispose();
+		this.scene = new MainScene();
 
-		await Renderer.compile();
+		Renderer.setScene(this.scene);
 
-		await Assets.userValidation;
+		Timer.add(this.update.bind(this));
 
 	}
 	update( currentTime, deltaTime ){
+
+		Renderer.camera.position.set(0, 0, 10);
 
 		Renderer.update(currentTime, deltaTime);
 
 	}
 	dispose(){
 
+		Configurator.dispose();
 		Renderer.dispose();
+		Input.dispose();
+		Timer.dispose();
+		Assets.dispose();
 
 	}
 }

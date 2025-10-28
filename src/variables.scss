@@ -1,0 +1,7 @@
+@mixin mediaquery( $breakpoint ){
+	@if $breakpoint == mobile {
+		@media (max-height: 520px) {
+			@content;
+		}
+	}
+}

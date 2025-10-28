@@ -1,4 +1,6 @@
-# Chanel - People Management
+# VVT - Boilerplate
+
+Vite + Vue + Three
 
 ## Install
 

@@ -1,0 +1,11 @@
+{
+	"start": "run",
+	"loading": "loading...",
+	"next": "next",
+	"tutorial": "Tutorial",
+	"letsPlay": "Let's play",
+	"floor": "Floor",
+	"createdBy": "Created by",
+	"languages.fr": "Français",
+	"languages.en": "English"
+}

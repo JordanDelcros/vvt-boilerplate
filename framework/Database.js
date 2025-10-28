@@ -1,4 +1,4 @@
-import { Debug } from "#framework";
+import { Configurator } from "#framework";
 
 let DATABASE = null;
 let DEBUG = null;
@@ -8,14 +8,16 @@ const STORE_NAME = "FILES";
 export default class Database {
 	static async setup(){
 
-		DEBUG = Debug.addFolder({
-			title: "Database"
-		});
+		if( Configurator.active ){
 
-		DEBUG.addButton({
-			title: "flush"
-		})
-		.on("click", () => this.flush());
+			DEBUG = Configurator.addFolder("Database");
+
+			DEBUG.addButton({
+				title: "flush"
+			})
+			.on("click", () => this.flush());
+
+		}
 
 		DATABASE = await new Promise(( resolve, reject ) => {
 
@@ -77,7 +79,7 @@ export default class Database {
 	}
 	static dispose(){
 
-		DEBUG.dispose();
+		// DEBUG?.dispose();
 
 	}
 }

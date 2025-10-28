@@ -1,17 +1,9 @@
-import { Scene, OrthographicCamera, WebGLRenderer, Vector2, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
-import Timer from "./Timer.js";
-import Configurator from "./Configurator.js";
+import { Scene, WebGLRenderer, Vector2, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
+import { BaseScene, Configurator, EventManager, Mapping, Timer } from "#framework";
 
 let INSTANCE = null;
-let SCENE = new Scene();
-let CAMERA = new OrthographicCamera(
-	window.innerWidth / -2,
-	window.innerWidth / 2,
-	window.innerHeight / 2,
-	window.innerHeight / -2,
-	1,
-	1000
-);
+let SCENE = null;
+let CAMERA = null;
 
 const GLOBAL_UNIFORMS = {
 	currentTime: { value: 0 },
@@ -20,6 +12,8 @@ const GLOBAL_UNIFORMS = {
 };
 
 const IGNORED_MATERIAL_PROPERTIES = [];
+
+let QUALITY = 1;
 
 export default class Renderer {
 	static get instance(){
@@ -47,7 +41,7 @@ export default class Renderer {
 		return GLOBAL_UNIFORMS;
 
 	}
-	static setup( canvas ){
+	static setup( canvas, scene = null ){
 
 		INSTANCE = new WebGLRenderer({
 			canvas,
@@ -56,13 +50,13 @@ export default class Renderer {
 			powerPreference: "high-performance"
 		});
 
-		window.addEventListener("resize", Renderer.resize);
+		EventManager.on(window, "resize", Renderer.resize);
 
 		Renderer.resize();
 
 		if( Configurator.active ){
 
-			const infoFolder = Configurator.addFolder("info");
+			const infoFolder = Configurator.addFolder("Info");
 			infoFolder.addBinding(INSTANCE.info.render, "calls", {
 				label: "drawcall",
 				readonly: true
@@ -80,7 +74,7 @@ export default class Renderer {
 				readonly: true
 			});
 
-			const configFolder = Configurator.addFolder("renderer");
+			const configFolder = Configurator.addFolder("Renderer");
 
 			const toneMappings = {
 				none: NoToneMapping,
@@ -112,28 +106,36 @@ export default class Renderer {
 
 		}
 
+		Renderer.setScene(scene ?? new BaseScene());
+
+	}
+	static setScene( scene ){
+
+		SCENE?.dispose();
+
+		SCENE = scene;
+		CAMERA = scene.camera;
+
+	}
+	static setQuality( value ){
+
+		QUALITY = Mapping.clamp(value, 0.01, 1);
+		Renderer.resize();
+
 	}
 	static resize(){
 
-		const width = window.innerWidth;
-		const height = window.innerHeight;
-		const pixelRatio = Math.min(2, window.devicePixelRatio);
+		const width = window.innerWidth * QUALITY;
+		const height = window.innerHeight * QUALITY;
+		const pixelRatio = Math.min(QUALITY < 1 ? 1 : 2, window.devicePixelRatio);
 
 		INSTANCE.setPixelRatio(pixelRatio);
-
-		Object.assign(INSTANCE, {
-			left: width / -2,
-			right: width / 2,
-			top: height / 2,
-			bottom: height / -2
-		});
-
-		CAMERA.updateProjectionMatrix();
+		INSTANCE.setSize(width, height, false);
 
 	}
 	static compile( element ){
 
-		INSTANCE.compile(SCENE, CAMERA, element);
+		INSTANCE.compile(Renderer.scene, Renderer.camera, element);
 
 	}
 	static update( currentTime, deltaTime ){
@@ -147,11 +149,25 @@ export default class Renderer {
 
 			if( element.update instanceof Function ) element.update(currentTime, deltaTime);
 
-		})
+		});
 
-		INSTANCE.render(SCENE, CAMERA);
+		INSTANCE.render(Renderer.scene, Renderer.camera);
 
 		Configurator.frameEnd();
+
+	}
+	static disposeElement( element, remove = true ){
+
+		if( element.isObject3D || element.isGroup ){
+
+			Renderer.disposeGroup(element, remove);
+
+		}
+		else if( element.isMesh ){
+
+			Renderer.disposeMesh(element, remove);
+
+		}
 
 	}
 	static disposeGroup( group, remove = true ){
@@ -346,19 +362,19 @@ export default class Renderer {
 	}
 	static dispose(){
 
-		window.removeEventListener("resize", Renderer.resize);
+		EventManager.off(window, "resize", Renderer.resize);
 
-		INSTANCE.dispose();
-
-		const meshesToRemove = new Array();
+		const disposables = new Array();
 
 		SCENE.traverse(( element ) => {
 
-			if( element.isMesh) meshesToRemove.push(element);
+			if( element.dispose instanceof Function ) disposables.push(element);
 
 		});
 
-		for( const mesh of meshesToRemove ) Renderer.disposeMesh(mesh);
+		for( const element of disposables ) element.dispose();
+
+		INSTANCE.dispose();
 
 	}
 }

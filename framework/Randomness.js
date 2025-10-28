@@ -14,14 +14,35 @@ export default class Randomness {
 		return Math.random() > 0.5 ? true : false;
 
 	}
+	static randomArrayIndex( array ){
+
+		return Randomness.randomInt(0, array.length);
+
+	}
 	static randomArrayValue( array ){
 
-		return array[Randomness.randomInt(0, array.length)];
+		return array[Randomness.randomArrayIndex(array)];
 
 	}
 	static choose( optionA, optionB ){
 
 		return Math.random() > 0.5 ? optionA : optionB;
+
+	}
+	static shuffleArray( array ){
+
+		let currentIndex = array.length;
+		while( currentIndex != 0 ){
+
+			let randomIndex = Math.floor(Math.random() * currentIndex);
+
+			currentIndex--;
+
+			[array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+
+		}
+
+		return array;
 
 	}
 }

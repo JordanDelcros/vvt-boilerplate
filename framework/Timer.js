@@ -54,7 +54,14 @@ export default class Timer {
 	}
 	static add( action ){
 
-		ACTIONS.push(action);
+		if( !ACTIONS.includes(action) ) ACTIONS.push(action);
+		return () => Timer.remove(action);
+
+	}
+	static remove( action ){
+
+		const index = ACTIONS.indexOf(action);
+		if( index > 0 ) ACTIONS.splice(index, 1);
 
 	}
 	static dispose(){

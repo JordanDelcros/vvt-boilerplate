@@ -1,23 +1,54 @@
-import { BaseMixin } from "#framework";
-import { EventManager, Renderer, BaseCamera } from "./";
-import { Scene, Object3D } from "three";
+import { BaseMixin, BaseCamera, EventManager, Renderer } from "#framework";
+import {  } from "./";
+import { Scene, PerspectiveCamera, OrthographicCamera } from "three";
 
 export default class BaseScene extends BaseMixin(Scene) {
-	constructor( fov = 50, near = 0.1, far = 100 ){
+	constructor({ orthographic = false } = {}){
 
 		super();
 
-		this.camera = new BaseCamera({
-			fov, near, far,
-			ratio: window.innerWidth / window.innerHeight
-		});
+		if( orthographic ){
 
-		this.offResize = EventManager.on(window, "resize", () => {
+			this.camera = new OrthographicCamera(
+				window.innerWidth / -2,
+				window.innerWidth / 2,
+				window.innerHeight / 2,
+				window.innerHeight / -2,
+				1,
+				1000
+			);
 
-			this.camera.aspect = window.innerWidth / window.innerHeight;
-			this.camera.updateProjectionMatrix();
+			this.offResize = EventManager.on(window, "resize", () => {
 
-		});
+				Object.assign(this.camera, {
+					left: window.innerWidth / -2,
+					right: window.innerWidth / 2,
+					top: window.innerHeight / 2,
+					bottom: window.innerHeight / -2
+				});
+
+				this.camera.updateProjectionMatrix();
+
+			});
+
+		}
+		else {
+
+			this.camera = new BaseCamera({
+				fov: 50,
+				near: 0.1,
+				far: 1000,
+				ratio: window.innerWidth / window.innerHeight
+			});
+
+			this.offResize = EventManager.on(window, "resize", () => {
+
+				this.camera.aspect = window.innerWidth / window.innerHeight;
+				this.camera.updateProjectionMatrix();
+
+			});
+
+		}
 
 	}
 	dispose(){

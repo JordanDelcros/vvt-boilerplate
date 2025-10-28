@@ -1,22 +1,18 @@
-import { createApp } from "vue";
 import "./style.css";
-import App from "./App.vue";
 import { Assets } from "#framework";
-import store from "./store.js";
+import { createApp } from "vue";
+import App from "./App.vue";
+import AssetsPlugin from "./plugins/Assets.js";
+import StorePlugin from "./plugins/Store.js";
+import LocalizePlugin from "./plugins/Localize.js";
+import config from "#root/config.js";
 
 console.log("Made with ♥️ from 🇫🇷");
 
-const locale = store.isFrench ? "fr" : "en";
+const app = createApp(App);
 
-import(/* @vite-ignore */`/data/${ locale }.js`).then(( data ) => {
+app.use(AssetsPlugin);
+app.use(StorePlugin);
+app.use(LocalizePlugin, config.locales);
 
-	Assets.set("data", data.default);
-
-	const app = createApp(App);
-
-	app.config.globalProperties.$store = store;
-
-	app.mount("#app");
-
-});
-
+app.mount("#app");

@@ -1,25 +1,31 @@
 import { Renderer, Database, Device, Audio } from "#framework";
-import { AudioLoader, Texture, DataTexture, EquirectangularReflectionMapping } from "three";
+import { Texture, DataTexture, EquirectangularReflectionMapping, LinearSRGBColorSpace } from "three";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import picomatch from "picomatch";
 import { ref } from "vue";
+import { USAGES, GROUPED } from "#framework/assets-packer/config.js";
 
 const REGISTRY = __ASSETS__;
 
 const PENDING = ref(0);
 const FILES = new Array();
 
-const IMAGES = ["jpg", "png", "webp"];
+const IMAGES = ["jpg", "jpeg", "png", "webp"];
 const COMPRESSED_IMAGES = ["ktx2"];
 const GLTF = ["gltf", "glb"];
 const AUDIO = ["aac", "mp3", "ogg", "wav", "opus"];
-const FONT = ["woff2", "woff", "ttf", "otf"];
+const VIDEO = ["mov", "mp4", "webm"];
+const FONT = ["woff2", "ttf"];
 const FONT3D = ["font3d"];
 
 let SUPPORT_KTX2 = false;
+let SUPPORT_WEBM = false;
+let SUPPORT_WOFF2 = false;
+
 const KTX2_LOADER = new KTX2Loader();
 KTX2_LOADER.setTranscoderPath("/basis/");
 
@@ -27,6 +33,11 @@ let USER_VALIDATION_RESOLVE = null;
 const USER_VALIDATION_PROMISE = new Promise(( resolve ) => USER_VALIDATION_RESOLVE = resolve);
 
 export default class Assets {
+	static get registry(){
+
+		return REGISTRY;
+
+	}
 	static get userValidation(){
 
 		return USER_VALIDATION_PROMISE;
@@ -53,19 +64,51 @@ export default class Assets {
 		await KTX2_LOADER.detectSupport(Renderer.instance);
 		SUPPORT_KTX2 = KTX2_LOADER.workerConfig.etc1Supported && KTX2_LOADER.workerConfig.astcSupported;
 
+		SUPPORT_WEBM = (( video ) => {
+
+			return ["probably", "maybe"].includes(video.canPlayType(`video/webm; codecs="vp9, opus"`))
+
+		})(document.createElement("video"));
+
+		SUPPORT_WOFF2 = (() => {
+
+			return "FontFace" in window;
+
+		})();
+
 	}
-	static dispose(){
+	static unload(){
 
 		KTX2_LOADER.dispose();
 
 	}
-	static get( name ){
+	static dispose(){
 
-		const fileByName = FILES.find(file => file.name === name);
+		Assets.unload();
+
+		FILES.forEach(( file ) => {
+
+			if( /blob:/.test(file.value?.src) ) URL.revokeObjectURL(file.value.src);
+
+		});
+
+	}
+	static get( nameOrPath ){
+
+		const fileByName = FILES.find(file => file.name === nameOrPath);
 		if( fileByName ) return fileByName.value;
 
-		const fileByPath = FILES.find(file => file.path.includes(name));
+		const fileByPath = FILES.find(file => file.path.includes(nameOrPath));
 		return fileByPath?.value;
+
+	}
+	static getName( nameOrPath ){
+
+		const fileByName = FILES.find(file => file.name === nameOrPath);
+		if( fileByName ) return fileByName.name;
+
+		const fileByPath = FILES.find(file => file.path.includes(nameOrPath));
+		return fileByPath?.name;
 
 	}
 	static set( path, value ){
@@ -78,123 +121,211 @@ export default class Assets {
 		return output;
 
 	}
-	static async load( path, options ){
+	static async preloadRegistry(){
 
-		const { usedPath, name, extension } = Assets.getBestFile(path);
+		return await Promise.all(Assets.registry.map(async ( asset ) => {
 
-		const alreadyLoaded = FILES.find(file => file.usedPath === usedPath);
-		if( alreadyLoaded ) return alreadyLoaded.value;
+			if( GROUPED.includes(asset.usage) ){
 
-		const output = { path, usedPath, name, extension, value: null };
-		FILES.push(output);
+				return Assets.loadGrouped(asset.path);
 
-		const onFail = ( error ) => {
+			}
+			else {
 
-			console.error(`Fail loading ${ usedPath }: ${ error.message }`);
+				return Assets.load(asset.path);
 
-		}
+			}
 
-		PENDING.value++;
-
-		const cachedBuffer = await Database.get(usedPath);
-
-		let buffer = cachedBuffer ?? await fetch(usedPath).then(response => response.arrayBuffer());
-
-		if( !cachedBuffer ) await Database.set(usedPath, buffer);
-
-		if( extension === "json" ){
-
-			const json = JSON.parse(new TextDecoder().decode(buffer));
-
-			output.value = json;
-
-		}
-		else if( extension === "exr" ){
-
-			const { data, width, height, type, format, colorSpace } = new EXRLoader().parse(buffer);
-			const texture = new DataTexture(data, width, height, format, type, EquirectangularReflectionMapping);
-			texture.needsUpdate = true;
-
-			output.value = texture;
-
-		}
-		else if( IMAGES.includes(extension) ){
-
-			const blob = new Blob([buffer]);
-			const bitmap = await createImageBitmap(blob, { imageOrientation: "flipY", colorSpaceConversion: "none" });
-			const texture = new Texture(bitmap);
-			texture.needsUpdate = true;
-
-			output.value = texture;
-
-		}
-		else if( COMPRESSED_IMAGES.includes(extension) ){
-
-			output.value = await new Promise(( resolve, reject ) => {
-
-				KTX2_LOADER.parse(buffer, data => resolve(data), error => reject(error));
-
-			});
-
-		}
-		else if( GLTF.includes(extension) ){
-
-			const loader = new GLTFLoader();
-			loader.setKTX2Loader(KTX2_LOADER);
-			loader.setMeshoptDecoder(MeshoptDecoder);
-
-			output.value = await new Promise(( resolve, reject ) => {
-
-				loader.parse(buffer, "", gltf => resolve(gltf.scene), error => reject(error));
-
-			});
-
-		}
-		else if( AUDIO.includes(extension) ){
-
-			output.value = await new Promise(( resolve, reject ) => {
-
-				Audio.context.decodeAudioData(buffer, ( audioBuffer ) => resolve(audioBuffer), onFail);
-
-			});
-
-		}
-		else if( FONT.includes(extension) ){
-
-			await document.fonts.ready;
-			output.value = new FontFace(name, buffer);
-			document.fonts.add(output.value);
-
-		}
-		else if( FONT3D.includes(extension) ){
-
-			const json = JSON.parse(new TextDecoder().decode(buffer));
-			const data = new FontLoader().parse(json);
-
-			output.value = data;
-
-		}
-
-		if( output.value ) Object.assign(output.value, options);
-
-		PENDING.value--;
-
-		return output.value;
+		}));
 
 	}
-	static async loadSound( path ){
+	static load( path, options ){
+
+		return new Promise(( resolve, reject ) => {
+
+			const isMatching = picomatch(path);
+			const loadings = REGISTRY.filter(file => isMatching(file.path)).map(async ({ path, usage }) => {
+
+				const { usedPath, name, extension } = Assets.getBestFile(path);
+
+				const alreadyLoadedOrLoading = FILES.find(file => file.usedPath === usedPath);
+				if( alreadyLoadedOrLoading ){
+
+					if( alreadyLoadedOrLoading.promise ) await alreadyLoadedOrLoading.promise;
+					return resolve(alreadyLoadedOrLoading.value);
+
+				}
+
+				const output = { path, usedPath, name, extension, usage, promise: null, value: null };
+				FILES.push(output);
+
+				PENDING.value++;
+
+				const onFail = ( error ) => {
+
+					console.error(`Fail loading ${ usedPath }: ${ error.message }`);
+					reject(error);
+
+				}
+
+				output.promise = new Promise(async ( resolve ) => {
+
+					const cachedBuffer = await Database.get(usedPath);
+
+					let buffer = cachedBuffer ?? await fetch(usedPath).then(response => response.arrayBuffer());
+
+					if( !cachedBuffer ) await Database.set(usedPath, buffer);
+
+					if( extension === "json" ){
+
+						const json = JSON.parse(new TextDecoder().decode(buffer));
+						output.value = json;
+
+					}
+					else if( extension === "exr" ){
+
+						const { data, width, height, type, format, colorSpace } = new EXRLoader().parse(buffer);
+						const texture = new DataTexture(data, width, height, format, type, EquirectangularReflectionMapping);
+						texture.needsUpdate = true;
+
+						output.value = texture;
+
+					}
+					else if( IMAGES.includes(extension) ){
+
+						const blob = new Blob([buffer]);
+
+						if( usage === USAGES.texture ){
+
+							const bitmap = await createImageBitmap(blob, { colorSpaceConversion: "none" });
+							const texture = new Texture(bitmap);
+							texture.encoding = LinearSRGBColorSpace;
+							texture.needsUpdate = true;
+
+							output.value = texture;
+
+						}
+						else {
+
+							const url = URL.createObjectURL(blob);
+
+							const image = await new Promise(( resolve ) => {
+
+								const img = document.createElement("img");
+								img.onload = () => resolve(img);
+								img.onerror = onFail;
+								img.src = url;
+
+							});
+
+							output.value = image;
+
+						}
+
+					}
+					else if( COMPRESSED_IMAGES.includes(extension) ){
+
+						output.value = await new Promise(( resolve ) => {
+
+							KTX2_LOADER.parse(buffer, texture => resolve(texture), onFail);
+
+						});
+
+					}
+					else if( GLTF.includes(extension) ){
+
+						const loader = new GLTFLoader();
+						loader.setKTX2Loader(KTX2_LOADER);
+						loader.setMeshoptDecoder(MeshoptDecoder);
+
+						output.value = await new Promise(( resolve ) => {
+
+							loader.parse(buffer, "", gltf => resolve(gltf.scene), onFail);
+
+						});
+
+					}
+					else if( AUDIO.includes(extension) ){
+
+						output.value = await new Promise(( resolve ) => {
+
+							Audio.context.decodeAudioData(buffer, ( audioBuffer ) => resolve(audioBuffer), onFail);
+
+						});
+
+					}
+					else if( VIDEO.includes(extension) ){
+
+						output.value = await new Promise(( resolve ) => {
+
+							const blob = new Blob([buffer]);
+							const url = URL.createObjectURL(blob);
+
+							const video = document.createElement("video");
+							video.oncanplaythrough = () => resolve(video);
+							video.onerror = onFail;
+							video.src = url;
+							video.load();
+
+						});
+
+					}
+					else if( FONT.includes(extension) ){
+
+						await document.fonts.ready;
+						output.value = new FontFace(name, buffer);
+						document.fonts.add(output.value);
+
+					}
+					else if( FONT3D.includes(extension) ){
+
+						const json = JSON.parse(new TextDecoder().decode(buffer));
+						const data = new FontLoader().parse(json);
+
+						output.value = data;
+
+					}
+					else {
+
+						console.warn(`Unregistered format "${ extension }"`)
+
+					}
+
+					if( output.value && options ) Object.assign(output.value, options);
+
+					PENDING.value--;
+
+					resolve(output.value);
+
+				});
+
+				return await output.promise;
+
+			});
+
+			if( loadings.length === 0 ) console.warn("No matching file registered for ", path);
+
+			Promise.all(loadings).then(resolve).catch(reject);
+
+		});
+
+	}
+	static async loadGrouped( path ){
 
 		const { usedPath, name, extension } = Assets.getBestFile(path);
 
 		const registered = REGISTRY.find(entry => entry.path === path);
 		if( !registered ) return null;
 
-		const [ metadata, audioBuffer ] = await Promise.all([
+		const [ metadata, grouped ] = await Promise.all([
 			registered.generated.metadata ? Assets.load(registered.generated.metadata) : null,
 			Assets.load(registered.path)
 		]);
 
-		return { metadata, audioBuffer };
+		return {
+			metadata: metadata[0],
+			grouped: grouped[0]
+		};
 
 	}
 	static getPathInfo( path ){
@@ -213,27 +344,38 @@ export default class Assets {
 		const registered = REGISTRY.find(entry => entry.path === path);
 		if( !registered ) return { path, usedPath: path, name, extension };
 
-		let { extension: usedExtension } = Assets.getPathInfo(registered.generated.high);
-		
+		let { extension: usedExtension } = Assets.getPathInfo(registered.generated.high ?? registered.generated.prefer);
+
 		let usedPath = path;
 
 		// Unsupported formats check
 		let needsExtensionUpdate = false;
 		const isUnsupportedTexture = !SUPPORT_KTX2 && (COMPRESSED_IMAGES.includes(usedExtension) || GLTF.includes(usedExtension));
 		const isUnsupportedAudio = !Audio.supportsOpus && AUDIO.includes(usedExtension);
-		if( isUnsupportedTexture || isUnsupportedAudio ){
+		const isUnsupportedVideo = !SUPPORT_WEBM && VIDEO.includes(usedExtension);
+		const isUnsupportedFont = !SUPPORT_WOFF2 && FONT.includes(usedExtension);
+
+		// Unsupported
+		if( isUnsupportedTexture || isUnsupportedAudio || isUnsupportedVideo || isUnsupportedFont ){
+
 			usedPath = registered.generated.fallback ?? path;
 			usedExtension = Assets.getPathInfo(usedPath).extension;
+
 		}
 		// Supported desktops
 		else if( Device.is.desktop ){
+
 			// Only safari
-			if( Device.is.safari ) usedPath = registered.generated.medium || registered.generated.high || registered.generated.low;
-			// Others
-			else usedPath = registered.generated.high || registered.generated.medium || registered.generated.low;
+			if( Device.is.safari ) usedPath = registered.generated.prefer || registered.generated.medium || registered.generated.high || registered.generated.low;
+			// All others
+			else usedPath = registered.generated.prefer || registered.generated.high || registered.generated.medium || registered.generated.low;
 		}
 		// supported mobiles/tablets
-		else usedPath = registered.generated.low || registered.generated.medium || registered.generated.high || registered.generated.fallback || path;
+		else {
+
+			usedPath = registered.generated.prefer || registered.generated.low || registered.generated.medium || registered.generated.high || registered.generated.fallback || path;
+
+		}
 
 		return {
 			path,

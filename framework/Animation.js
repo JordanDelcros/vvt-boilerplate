@@ -1,5 +1,9 @@
 import Easings from "./Easings";
 
+const RESERVED_KEYS = ["duration", "easing"];
+
+const EPSILON = 1e-8;
+
 export default class Animation {
 	constructor({ onStart, onUpdate, onComplete, keepAlive = false, paused = false, easing = Easings.linear } = {}){
 
@@ -74,7 +78,7 @@ export default class Animation {
 		const properties = new Array();
 		for( const key in to ){
 
-			if( ["duration", "easing"].includes(key) ) continue;
+			if( RESERVED_KEYS.includes(key) ) continue;
 
 			if( target[key] !== undefined ){
 
@@ -91,7 +95,7 @@ export default class Animation {
 		const tween = Animation.generateTween(this, target, to, properties, begin);
 		this.tweens.push(tween);
 
-		this.duration = Math.max(0, this.duration, tween.duration + tween.begin);
+		this.duration = Math.max(EPSILON, this.duration, tween.duration + tween.begin);
 
 		return this;
 
@@ -102,7 +106,7 @@ export default class Animation {
 
 		for( const key in to ){
 
-			if( ["duration", "easing"].includes(key) ) continue;
+			if( RESERVED_KEYS.includes(key) ) continue;
 
 			if( from[key] !== undefined || target[key] !== undefined ){
 
@@ -119,14 +123,14 @@ export default class Animation {
 		const tween = Animation.generateTween(this, target, to, properties, begin);
 		this.tweens.push(tween);
 
-		this.duration = Math.max(0, this.duration, tween.duration + tween.begin);
+		this.duration = Math.max(EPSILON, this.duration, tween.duration + tween.begin);
 
 		return this;
 
 	}
 	set( target, to, begin ){
 
-		to.duration = 1;
+		to.duration = EPSILON;
 
 		const properties = new Array();
 		for( const key in to ){
@@ -146,17 +150,17 @@ export default class Animation {
 		const tween = Animation.generateTween(this, target, to, properties, begin);
 		this.tweens.push(tween);
 
-		this.duration = Math.max(this.duration, tween.begin + 1);
+		this.duration = Math.max(EPSILON, this.duration, tween.duration + tween.begin);
 
 		return this;
 
 	}
 	do( action, begin ){
 
-		const tween = Animation.generateTween(this, null, { duration: 1, onComplete: action }, [], begin);
+		const tween = Animation.generateTween(this, null, { duration: EPSILON, onComplete: action }, [], begin);
 		this.tweens.push(tween);
 
-		this.duration = Math.max(this.duration, tween.begin + 1);
+		this.duration = Math.max(EPSILON, this.duration, tween.duration + tween.begin);
 
 		return this;
 
@@ -186,6 +190,8 @@ export default class Animation {
 
 	}
 	update( deltaTime ){
+
+		if( deltaTime === undefined ) console.warn("Tween update 'deltaTime' is not defined.");
 
 		if( this.paused || (this.complete && !this.keepAlive) ){
 
@@ -221,14 +227,14 @@ export default class Animation {
 
 			const progress = Math.max(0, Math.min(1, (this.elapsed - tween.begin) / tween.duration));
 
+			Animation.updateTween(tween, progress);
+
 			if( progress == 1 ){
-			
+
 				tween.complete = true;
 				tween.onComplete?.();
 
 			}
-
-			Animation.updateTween(tween, progress);
 
 		}
 

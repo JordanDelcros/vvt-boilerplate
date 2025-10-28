@@ -1,4 +1,4 @@
-import { Debug, Audio } from "#framework";
+import { Configurator, Audio } from "#framework";
 import { Object3D } from "three";
 
 export default ( Base ) => class extends Base {
@@ -8,7 +8,7 @@ export default ( Base ) => class extends Base {
 
 		if( this.debug ){
 
-			this.debugFolder = Debug.addFolder({ title: this.constructor.name });
+			this.debugFolder = Configurator.addFolder(this.constructor.name);
 			this.debug(this.debugFolder);
 
 		}

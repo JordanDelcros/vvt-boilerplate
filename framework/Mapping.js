@@ -14,4 +14,9 @@ export default class Mapping {
 		return Mapping.clamp(Mapping.map(value, inMin, inMax, outMin, outMax), outMin, outMax);
 
 	}
+	static lerp( current, target, factor = 0.5 ){
+
+		return current + (target - current) * factor;
+
+	}
 }

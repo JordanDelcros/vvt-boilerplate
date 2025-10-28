@@ -1,30 +1,77 @@
-import AudioManager from "./AudioManager.js";
+import { Assets, Audio } from "#framework";
 
 export default class AudioNode {
-	constructor( audioBuffer ){
+	constructor( target ){
 
-		this.audioBuffer = audioBuffer;
-
-		this.runnings = new Array();
+		Object.assign(this, {
+			audioBuffer: target instanceof AudioBuffer ? target : Assets.get(target),
+			runnings: new Array()
+		});
 
 	}
-	async play( playbackRate = 1, delay = 0, fadeIn = 0, volume = 1, loop = false ){
+	async play({ volume = 1, loop = false, seek = 0, delay = 0, fadeIn = 0, fadeOut = 0, duration = null, speed = 1 } = {} ){
 
-		const source = await AudioManager.play(this.audioBuffer, playbackRate, delay, fadeIn, true, volume, loop);
+		return new Promise(( resolve, reject ) => {
 
-		this.runnings.push(source);
+			if( !this.audioBuffer ) reject("Missing audio buffer");
 
-		return source;
+			try {
+
+				const gain = Audio.context.createGain();
+				gain.connect(Audio.destination);
+
+				const source = Audio.context.createBufferSource();
+				source.buffer = this.audioBuffer;
+				source.playbackRate.value = speed;
+				source.loop = loop;
+				source.connect(gain);
+
+				if( fadeIn > 0 ){
+
+					gain.gain.setValueAtTime(0, Audio.currentTime + delay);
+					gain.gain.linearRampToValueAtTime(volume, Audio.currentTime + delay + fadeIn);
+
+				}
+
+				source.fadeOutStop = ( fadeOut = 0 ) => {
+
+					gain.gain.setValueAtTime(gain.gain.value, Audio.currentTime);
+					gain.gain.linearRampToValueAtTime(0, Audio.currentTime + fadeOut);
+
+					setTimeout(() => source.stop(), fadeOut * 1000);
+
+				};
+
+				source.onended = () => {
+
+					this.runnings.splice(this.runnings.indexOf(source), 1);
+
+					source.onended = null;
+					source.disconnect();
+
+					resolve(source);
+
+				};
+
+				Audio.context.resume();
+
+				this.runnings.push(source);
+
+				source.start(Audio.currentTime + delay, seek, duration || source.duration);
+
+			}
+			catch( error ){
+
+				reject(error.message);
+
+			}
+
+		});
 
 	}
 	stop( fadeOut = 0 ){
 
-		this.runnings.forEach(source => source.fadeOutStop(fadeOut));
-
-	}
-	dispose(){
-
-		this.stop();
+		this.runnings.forEach(source => source.fadeOutStop(fadeOut))
 
 	}
 }

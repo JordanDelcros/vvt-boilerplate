@@ -1,4 +1,4 @@
-import { EventManager } from "#framework";
+import EventManager from "./EventManager.js";
 
 let INFO = null;
 

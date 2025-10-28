@@ -1,3 +1,4 @@
+import { EventManager } from "#framework";
 import { Pane } from "tweakpane";
 import * as TweakpaneEssentialsPlugin from "@tweakpane/plugin-essentials";
 
@@ -30,8 +31,8 @@ export default class Configurator {
 
 		PANE.on("change", Configurator.save);
 
-		window.addEventListener("keydown", Configurator.toggle);
-		window.addEventListener("touchstart", Configurator.toggle);
+		EventManager.on(window, "keydown", Configurator.toggle);
+		EventManager.on(window, "touchstart", Configurator.toggle);
 
 		IS_SETUP = true;
 
@@ -79,13 +80,13 @@ export default class Configurator {
 		Configurator.save();
 
 	}
-	static addFolder( title ){
+	static addFolder( title, expanded = false ){
 
 		if( !Configurator.active ) return;
 
 		return PANE.addFolder({
 			title,
-			expanded: false
+			expanded
 		});
 
 	}
@@ -167,10 +168,8 @@ export default class Configurator {
 	}
 	static dispose(){
 
-		if( !Configurator.active ) return;
-
-		window.removeEventListener("keydown", Configurator.toggle);
-		window.removeEventListener("touchstart", Configurator.toggle);
+		EventManager.off(window, "keydown", Configurator.toggle);
+		EventManager.off(window, "touchstart", Configurator.toggle);
 
 		PANE.dispose();
 
