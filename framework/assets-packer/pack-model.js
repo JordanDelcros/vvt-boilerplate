@@ -1,6 +1,6 @@
 import { NodeIO } from "@gltf-transform/core";
 import { dedup, prune, meshopt } from "@gltf-transform/functions";
-import { KHRDracoMeshCompression } from "@gltf-transform/extensions";
+import { KHRMaterialsEmissiveStrength, KHRLightsPunctual } from "@gltf-transform/extensions";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { MeshoptEncoder } from "meshoptimizer";
@@ -24,10 +24,12 @@ export default function packModel( source ){
 			};
 
 			const io = new NodeIO();
+			io.registerExtensions([ KHRMaterialsEmissiveStrength, KHRLightsPunctual ]);
+
 			const gltf = await io.read(source.file);
 
-			// Disable double sided (default true)
-			if( source.options.forceSingleSide !== false ){
+			// Disable double sided (default false)
+			if( source.options.forceSingleSide === true ){
 
 				const materials = gltf.getRoot().listMaterials();
 
