@@ -1,13 +1,20 @@
 import { defineConfig } from "vite";
-import assetsManager from "./plugins/assets-manager.js";
+import { createHtmlPlugin } from "vite-plugin-html";
+import createAssetsManagerPlugin from "./plugins/assets-manager.js";
 import SSLServer from "./plugins/ssl-server.js";
 import vue from "@vitejs/plugin-vue";
 import glsl from "vite-plugin-glsl";
 import { resolve } from "path";
+import config from "./config.js";
 
 export default defineConfig(({ mode }) => ({
 	plugins: [
-		assetsManager(mode),
+		createHtmlPlugin({
+			inject: {
+				data: config
+			}
+		}),
+		createAssetsManagerPlugin(mode),
 		vue(),
 		glsl({
 			watch: true,

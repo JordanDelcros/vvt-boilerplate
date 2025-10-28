@@ -24,6 +24,7 @@
 	import { Assets, Audio, Randomness, UseStore } from "#framework";
 	import { ref, watch, onMounted } from "vue";
 	import { $assets } from "#app/plugins/Assets.js";
+	import config from "#root/config.js";
 
 	const $store = UseStore();
 	const progress = ref(0);
@@ -37,6 +38,9 @@
 		biggest = Math.max(biggest, pendingFiles);
 		smallest = Math.min(smallest, pendingFiles);
 		progress.value = (smallest / biggest) * 100;
+
+		if( !config.renderer.awaitLoaderExit && pendingFiles === 0 ) exit();
+
 	});
 
 	function exit(){

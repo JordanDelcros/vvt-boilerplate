@@ -11,6 +11,8 @@ Packer.useFast(true);
 Packer.add("locales/*.json", Packer.usages.locale, { destination: "/public/locales" });
 
 // Commons
+Packer.add("models/**/*.glb", Packer.usages.model, { force: false, optimize: false });
+Packer.add("maps/**/*.exr", Packer.usages.copy, { force: true });
 Packer.add("maps/**/*.png", Packer.usages.texture);
 
 // Sounds

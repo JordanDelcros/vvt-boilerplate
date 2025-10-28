@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import { dirname, basename, extname } from "path";
 import { globSync } from "glob";
 import CLIProgress from "cli-progress";
+import packCopy from "./pack-copy.js";
 import packImage from "./pack-image.js";
 import packTexture from "./pack-texture.js";
 import packModel from "./pack-model.js";
@@ -221,6 +222,9 @@ export default class AssetsPacker {
 		else if( source.usage === AssetsPacker.usages.locale ){
 			return packLocale(source);
 		}
+		else {
+			return packCopy(source);
+		}
 
 	}
 	static async pack( mode, maxConcurrency = 1 ){
@@ -398,7 +402,7 @@ export default class AssetsPacker {
 
 			registry.push({
 				path: registered.generated.metadata,
-				usage: USAGES.internal,
+				usage: USAGES.copy,
 				generated: {
 					prefer: registered.generated.metadata
 				}

@@ -27,6 +27,7 @@
     "ttf2woff2": "^8.0.0",
     "tweakpane": "^4.0.5",
     "vite": "^6.2.0",
-    "vite-plugin-glsl": "^1.4.0"
+    "vite-plugin-glsl": "^1.4.0",
+    "vite-plugin-html": "^3.2.2"
   }
 }

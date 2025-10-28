@@ -3,7 +3,6 @@ import { BaseScene, Configurator, EventManager, Mapping, Timer } from "#framewor
 
 let INSTANCE = null;
 let SCENE = null;
-let CAMERA = null;
 
 const GLOBAL_UNIFORMS = {
 	currentTime: { value: 0 },
@@ -33,7 +32,7 @@ export default class Renderer {
 	}
 	static get camera(){
 
-		return CAMERA;
+		return SCENE?.camera;
 
 	}
 	static get uniforms(){
@@ -106,15 +105,16 @@ export default class Renderer {
 
 		}
 
-		Renderer.setScene(scene ?? new BaseScene());
+		Renderer.setScene(scene ? scene : new BaseScene());
 
 	}
 	static setScene( scene ){
 
+		if( !(scene instanceof BaseScene) ) return console.error("given scene is not an instance of BaseScene:", scene);
+
 		SCENE?.dispose();
 
 		SCENE = scene;
-		CAMERA = scene.camera;
 
 	}
 	static setQuality( value ){

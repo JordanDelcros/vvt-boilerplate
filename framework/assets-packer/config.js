@@ -1,6 +1,6 @@
 // All defined usages
 export const USAGES = {
-	internal: -1,
+	copy: -1,
 	image: 0,
 	texture: 1,
 	model: 2,

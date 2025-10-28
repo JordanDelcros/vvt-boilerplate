@@ -1,7 +1,8 @@
 export default {
+	title: "Sephora Serious Game",
 	packer: {
 		// toggle asset packing CLI visual progress bar
-		progressBar: true
+		progressBar: false
 	},
 	locales: {
 		// default language
@@ -15,7 +16,7 @@ export default {
 	},
 	renderer: {
 		// run the webgl only when exiting the loader (user input)
-		awaitLoaderExit: true
+		awaitLoaderExit: false
 	},
 	configurator: {
 		// toggle configurator tool

@@ -1,5 +1,4 @@
 import { BaseMixin, BaseCamera, EventManager, Renderer } from "#framework";
-import {  } from "./";
 import { Scene, PerspectiveCamera, OrthographicCamera } from "three";
 
 export default class BaseScene extends BaseMixin(Scene) {
@@ -50,6 +49,8 @@ export default class BaseScene extends BaseMixin(Scene) {
 
 		}
 
+		this.add(this.camera);
+
 	}
 	dispose(){
 
@@ -65,6 +66,8 @@ export default class BaseScene extends BaseMixin(Scene) {
 				element.material.dispose();
 
 			}
+
+			if( element !== this && element.dispose instanceof Function ) element.dispose();
 
 		});
 

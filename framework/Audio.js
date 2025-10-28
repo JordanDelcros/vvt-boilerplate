@@ -125,7 +125,7 @@ export default class Audio {
 	}
 	static listenFrom( target ){
 
-		if( !(target instanceof Object3D) ) throw new Error(`${ target } is not an instance of three.js Object3D`);
+		if( !(target instanceof Object3D) ) return console.error(`${ target } is not an instance of three.js Object3D`);
 
 		target.add(LISTENER);
 

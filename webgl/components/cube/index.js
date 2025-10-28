@@ -1,5 +1,5 @@
 import { Assets, BaseMesh } from "#framework";
-import { BoxGeometry, MeshBasicMaterial } from "three";
+import { BoxGeometry, MeshStandardMaterial } from "three";
 
 export default class Cube extends BaseMesh {
 	constructor(){
@@ -7,7 +7,7 @@ export default class Cube extends BaseMesh {
 		const map = Assets.get("/maps/debug.png");
 
 		const geometry = new BoxGeometry(5, 5, 5);
-		const material = new MeshBasicMaterial({ map });
+		const material = new MeshStandardMaterial({ map });
 
 		super(geometry, material);
 

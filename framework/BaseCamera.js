@@ -30,4 +30,9 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		this.getWorldDirection(this.worldDirection);
 
 	}
+	debug( folder ){
+
+		console.log("debug camera", folder);
+
+	}
 }

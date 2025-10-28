@@ -65,17 +65,19 @@ export default function packModel( source ){
 			// Optimize and compress loss-less meshes
 			if( source.options.optimize !== false ){
 
-				await execAsync(`npx gltf-transform meshopt ${ source.generated.fallback } ${ source.generated.fallback }`);
+				await execAsync(`npx @gltf-transform/cli meshopt ${ source.generated.fallback } ${ source.generated.fallback }`);
 
 			}
 
-			// Resize textures max to 1024x1024
-			await execAsync(`npx gltf-transform resize ${ source.generated.fallback } ${ source.generated.low } --width 1024 --height 1024`);
-
 			// Compress textures
 			const level = source.options.fast ? 0 : 5;
-			await execAsync(`npx gltf-transform uastc ${ source.generated.fallback } ${ source.generated.high } --level ${ source.options.fast ? 0 : 4 }`);
-			await execAsync(`npx gltf-transform etc1s ${ source.generated.low } ${ source.generated.low } --compression ${ source.options.fast ? 0 : 5 }`);
+
+			// High gets UASTC compressed textures
+			await execAsync(`npx @gltf-transform/cli uastc ${ source.generated.fallback } ${ source.generated.high } --level ${ source.options.fast ? 0 : 4 }`);
+
+			// Low gets lowest size ETC1S compressed texture (1024x1024)
+			await execAsync(`npx @gltf-transform/cli resize ${ source.generated.fallback } ${ source.generated.low } --width 1024 --height 1024`);
+			await execAsync(`npx @gltf-transform/cli etc1s ${ source.generated.low } ${ source.generated.low } --compression ${ source.options.fast ? 0 : 5 }`);
 
 			return source;
 
