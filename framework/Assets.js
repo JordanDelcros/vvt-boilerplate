@@ -1,13 +1,14 @@
 import { Renderer, Database, Device, Audio } from "#framework";
+import { USAGES, GROUPED } from "#framework/assets-packer/config.js";
+import config from "#root/config.js";
 import { Texture, DataTexture, EquirectangularReflectionMapping, LinearSRGBColorSpace } from "three";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import picomatch from "picomatch";
 import { ref } from "vue";
-import { USAGES, GROUPED } from "#framework/assets-packer/config.js";
+import picomatch from "picomatch";
 
 const REGISTRY = __ASSETS__;
 
@@ -170,7 +171,7 @@ export default class Assets {
 
 				output.promise = new Promise(async ( resolve ) => {
 
-					const cachedBuffer = await Database.get(usedPath);
+					const cachedBuffer = await config.assets.useCache !== false ? Database.get(usedPath) : null;
 
 					let buffer = cachedBuffer ?? await fetch(usedPath).then(response => response.arrayBuffer());
 
