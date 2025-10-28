@@ -171,7 +171,7 @@ export default class Assets {
 
 				output.promise = new Promise(async ( resolve ) => {
 
-					const cachedBuffer = await config.assets.useCache !== false ? Database.get(usedPath) : null;
+					const cachedBuffer = await (config.assets.useCache !== false ? Database.get(usedPath) : null);
 
 					let buffer = cachedBuffer ?? await fetch(usedPath).then(response => response.arrayBuffer());
 

@@ -11,7 +11,7 @@ Packer.useFast(true);
 Packer.add("locales/*.json", Packer.usages.locale, { destination: "/public/locales" });
 
 // Commons
-Packer.add("maps/**/*.png", Packer.usages.texture, { force: true });
+Packer.add("maps/**/*.png", Packer.usages.texture);
 
 // Sounds
 Packer.add("audio/sounds/*", Packer.usages.sound, { name: "packed-sounds" });
