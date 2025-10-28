@@ -15,6 +15,7 @@ export default {
 		useCache: true
 	},
 	renderer: {
+		antialias: true,
 		// run the webgl only when exiting the loader (user input)
 		awaitLoaderExit: false
 	},

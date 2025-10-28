@@ -166,6 +166,11 @@ export default class Configurator {
 		}
 
 	}
+	static refresh(){
+
+		Configurator.pane.refresh();
+
+	}
 	static dispose(){
 
 		EventManager.off(window, "keydown", Configurator.toggle);

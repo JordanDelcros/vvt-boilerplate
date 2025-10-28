@@ -4,9 +4,9 @@ import Cube from "#webgl/components/cube";
 export default class MainScene extends BaseScene {
 	constructor(){
 
-		super();
+		super({ fov: 30 });
 
-		this.environment = Assets.get("/maps/environment-small.exr");
+		this.environment = Assets.get("/maps/environment-big.exr");
 
 		this.add(Cube);
 

@@ -41,8 +41,6 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 	}
 	debug( folder ){
 
-		console.log("debug camera", folder);
-
 		const params = {
 			freemove: false
 		};

@@ -2,7 +2,7 @@ import { BaseMixin, BaseCamera, EventManager, Renderer } from "#framework";
 import { Scene, PerspectiveCamera, OrthographicCamera } from "three";
 
 export default class BaseScene extends BaseMixin(Scene) {
-	constructor({ orthographic = false } = {}){
+	constructor({ orthographic = false, fov = 50, near = 0.1, far = 1000 } = {}){
 
 		super();
 
@@ -13,8 +13,8 @@ export default class BaseScene extends BaseMixin(Scene) {
 				window.innerWidth / 2,
 				window.innerHeight / 2,
 				window.innerHeight / -2,
-				1,
-				1000
+				near,
+				far
 			);
 
 			this.offResize = EventManager.on(window, "resize", () => {
@@ -34,9 +34,9 @@ export default class BaseScene extends BaseMixin(Scene) {
 		else {
 
 			this.camera = new BaseCamera({
-				fov: 50,
-				near: 0.1,
-				far: 1000,
+				fov,
+				near,
+				far,
 				ratio: window.innerWidth / window.innerHeight
 			});
 

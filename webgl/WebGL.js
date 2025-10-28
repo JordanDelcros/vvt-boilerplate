@@ -1,16 +1,12 @@
 import { Assets, Audio, Configurator, Input, Renderer, Timer } from "#framework";
-import { Object3D, Quaternion, NeutralToneMapping, RepeatWrapping, LinearSRGBColorSpace } from "three";
 import MainScene from "#webgl/components/main-scene";
-
-const DUMMY = new Object3D();
-const QUATERNION = new Quaternion();
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
 export default class WebGL {
 	constructor( canvas ){
 
 		Renderer.setup(canvas);
 		Renderer.instance.setClearColor(0x000000, 1);
-		Renderer.instance.outputColorSpace = LinearSRGBColorSpace;
 
 		Audio.setup();
 		Input.setup();
@@ -19,6 +15,7 @@ export default class WebGL {
 		if( Configurator.active ){
 
 			// Add some top-level confs here
+			this.postprocessingFolder = Configurator.addFolder("Postprocessings");
 
 		}
 
@@ -29,7 +26,18 @@ export default class WebGL {
 
 		Renderer.setScene(this.scene);
 
-		Renderer.camera.position.set(0, 0, 10);
+		Renderer.camera.position.set(0, 0, 15);
+
+		const bloomPass = new UnrealBloomPass(Renderer.screenSize, 0.2, 2.0, 0.2);
+		Renderer.addPass(bloomPass);
+
+		if( Configurator.active ){
+
+			this.postprocessingFolder.addBinding(bloomPass, "strength");
+			this.postprocessingFolder.addBinding(bloomPass, "radius");
+			this.postprocessingFolder.addBinding(bloomPass, "threshold", { min: 0, max: 1 });
+
+		}
 
 		Timer.add(this.update.bind(this));
 
