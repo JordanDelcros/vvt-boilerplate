@@ -222,15 +222,19 @@ export default class Renderer {
 
 		POSTPROCESSING.addPass(pass);
 
-		if( DEBUG_FOLDERS.postprocessing && configurables instanceof Array ){
+		if( DEBUG_FOLDERS.postprocessing ){
 
 			const folder = DEBUG_FOLDERS.postprocessing.addFolder({ title: pass.constructor.name });
 
 			folder.addBinding(pass, "enabled");
 
-			for( const [ target, key, label ] of configurables ){
+			if( configurables instanceof Array ){
 
-				folder.addBinding(target, key, label && { label });
+				for( const [ target, key, label ] of configurables ){
+
+					folder.addBinding(target, key, label && { label });
+
+				}
 
 			}
 
