@@ -15,7 +15,6 @@ export default class WebGL {
 		if( Configurator.active ){
 
 			// Add some top-level confs here
-			this.postprocessingFolder = Configurator.addFolder("Postprocessings");
 
 		}
 
@@ -29,15 +28,11 @@ export default class WebGL {
 		Renderer.camera.position.set(0, 0, 15);
 
 		const bloomPass = new UnrealBloomPass(Renderer.screenSize, 0.2, 2.0, 0.2);
-		Renderer.addPass(bloomPass);
-
-		if( Configurator.active ){
-
-			this.postprocessingFolder.addBinding(bloomPass, "strength");
-			this.postprocessingFolder.addBinding(bloomPass, "radius");
-			this.postprocessingFolder.addBinding(bloomPass, "threshold", { min: 0, max: 1 });
-
-		}
+		Renderer.addPass(bloomPass, [
+			[bloomPass, "strength"],
+			[bloomPass, "radius"],
+			[bloomPass, "threshold"]
+		]);
 
 		Timer.add(this.update.bind(this));
 

@@ -19,6 +19,11 @@ const IGNORED_MATERIAL_PROPERTIES = [];
 let QUALITY = 1;
 let USE_POSTPROCESSING = false;
 let POSTPROCESSING = null;
+let DEBUG_FOLDERS = {
+	info: null,
+	renderer: null,
+	postprocessing: null
+};
 
 export default class Renderer {
 	static get instance(){
@@ -59,6 +64,7 @@ export default class Renderer {
 	static set usePostprocessing( value ){
 
 		USE_POSTPROCESSING = value;
+		if( Configurator.active && !DEBUG_FOLDERS.postprocessing ) DEBUG_FOLDERS.postprocessing = Configurator.addFolder("Postprocessings");
 		Configurator.refresh();
 
 	}
@@ -77,32 +83,47 @@ export default class Renderer {
 
 		if( Configurator.active ){
 
-			const infoFolder = Configurator.addFolder("Info");
-			infoFolder.addBinding(Renderer.instance.info.render, "calls", {
+			DEBUG_FOLDERS.info = Configurator.addFolder("Info");
+			DEBUG_FOLDERS.info.addBinding(Renderer.instance.info.render, "calls", {
 				label: "drawcall",
 				readonly: true
 			});
 
-			infoFolder.addBinding(Renderer.instance.info.render, "triangles", {
+			DEBUG_FOLDERS.info.addBinding(Renderer.instance.info.render, "triangles", {
 				readonly: true
 			});
 
-			infoFolder.addBinding(Renderer.instance.info.memory, "geometries", {
+			DEBUG_FOLDERS.info.addBinding(Renderer.instance.info.memory, "geometries", {
 				readonly: true
 			});
 
-			infoFolder.addBinding(Renderer.instance.info.memory, "textures", {
+			DEBUG_FOLDERS.info.addBinding(Renderer.instance.info.memory, "textures", {
 				readonly: true
 			});
 
-			const configFolder = Configurator.addFolder("Renderer");
+			DEBUG_FOLDERS.renderer = Configurator.addFolder("Renderer");
+
+			DEBUG_FOLDERS.renderer.addBlade({
+				view: "list",
+				value: 1,
+				label: "quality",
+				options: [
+					{ text: "high", value: 1 },
+					{ text: "medium", value: 0.5 },
+					{ text: "low", value: 0.25 }
+				]
+			}).on("change", ({ value }) => {
+
+				Renderer.setQuality(value);
+
+			});
 
 			const outputColorSpace = {
 				srgb: SRGBColorSpace,
 				linear: LinearSRGBColorSpace
 			};
 
-			configFolder.addBlade({
+			DEBUG_FOLDERS.renderer.addBlade({
 				view: "list",
 				value: "srgb",
 				label: "color space",
@@ -126,7 +147,7 @@ export default class Renderer {
 				neutral: NeutralToneMapping
 			};
 
-			configFolder.addBlade({
+			DEBUG_FOLDERS.renderer.addBlade({
 				view: "list",
 				value: "none",
 				label: "tone mapping",
@@ -145,7 +166,7 @@ export default class Renderer {
 
 			});
 
-			configFolder.addBinding(Renderer, "usePostprocessing");
+			DEBUG_FOLDERS.renderer.addBinding(Renderer, "usePostprocessing");
 
 		}
 
@@ -186,7 +207,7 @@ export default class Renderer {
 		Renderer.instance.compile(Renderer.scene, Renderer.camera, element);
 
 	}
-	static addPass( pass ){
+	static addPass( pass, configurables = null ){
 
 		if( !POSTPROCESSING ){
 
@@ -200,6 +221,18 @@ export default class Renderer {
 		}
 
 		POSTPROCESSING.addPass(pass);
+
+		if( Configurator.active && DEBUG_FOLDERS.postprocessing && configurables instanceof Array ){
+
+			const folder = DEBUG_FOLDERS.postprocessing.addFolder({ title: pass.constructor.name });
+
+			for( const [ target, key ] of configurables ){
+
+				folder.addBinding(target, key)
+
+			}
+
+		}
 
 	}
 	static update( currentTime, deltaTime ){
