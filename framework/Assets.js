@@ -241,7 +241,7 @@ export default class Assets {
 
 						output.value = await new Promise(( resolve ) => {
 
-							loader.parse(buffer, "", gltf => resolve(gltf.scene), onFail);
+							loader.parse(buffer, "", gltf => resolve(gltf), onFail);
 
 						});
 

@@ -109,6 +109,7 @@ export default class Renderer {
 				label: "quality",
 				options: [
 					{ text: "high", value: 1 },
+					{ text: "good", value: 0.9 },
 					{ text: "medium", value: 0.5 },
 					{ text: "low", value: 0.25 }
 				]

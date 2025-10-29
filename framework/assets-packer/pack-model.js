@@ -1,6 +1,6 @@
 import { NodeIO } from "@gltf-transform/core";
 import { dedup, prune, meshopt } from "@gltf-transform/functions";
-import { KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRTextureTransform } from "@gltf-transform/extensions";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { MeshoptEncoder } from "meshoptimizer";
@@ -23,8 +23,11 @@ export default function packModel( source ){
 				fallback: `${ output }.fallback.glb`,
 			};
 
+			const requiredExtensions = new Set();
+			const extensions = new Array();
+
 			const io = new NodeIO();
-			io.registerExtensions([ KHRLightsPunctual, KHRMaterialsEmissiveStrength, KHRTextureTransform ]);
+			io.registerExtensions(ALL_EXTENSIONS);
 
 			const gltf = await io.read(source.file);
 
