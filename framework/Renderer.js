@@ -64,7 +64,7 @@ export default class Renderer {
 	static set usePostprocessing( value ){
 
 		USE_POSTPROCESSING = value;
-		if( Configurator.active && !DEBUG_FOLDERS.postprocessing ) DEBUG_FOLDERS.postprocessing = Configurator.addFolder("Postprocessings");
+		if( !DEBUG_FOLDERS.postprocessing ) DEBUG_FOLDERS.postprocessing = Configurator.addFolder("Postprocessings");
 		Configurator.refresh();
 
 	}
@@ -222,13 +222,15 @@ export default class Renderer {
 
 		POSTPROCESSING.addPass(pass);
 
-		if( Configurator.active && DEBUG_FOLDERS.postprocessing && configurables instanceof Array ){
+		if( DEBUG_FOLDERS.postprocessing && configurables instanceof Array ){
 
 			const folder = DEBUG_FOLDERS.postprocessing.addFolder({ title: pass.constructor.name });
 
-			for( const [ target, key ] of configurables ){
+			folder.addBinding(pass, "enabled");
 
-				folder.addBinding(target, key)
+			for( const [ target, key, label ] of configurables ){
+
+				folder.addBinding(target, key, label && { label });
 
 			}
 
