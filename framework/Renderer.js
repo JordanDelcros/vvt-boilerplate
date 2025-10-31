@@ -1,5 +1,5 @@
-import { BaseScene, Configurator, EventManager, Mapping, Timer } from "#framework";
-import { Scene, WebGLRenderer, Vector2, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
+import { BaseScene, Configurator, EventManager, Mapping, PostProcessing, Timer } from "#framework";
+import { Scene, WebGLRenderer, Vector3, VSMShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import config from "#root/config.js";
@@ -7,7 +7,7 @@ import config from "#root/config.js";
 let INSTANCE = null;
 let SCENE = null;
 
-const SCREEN_SIZE = new Vector2();
+const SCREEN_SIZE = new Vector3();
 const GLOBAL_UNIFORMS = {
 	currentTime: { value: 0 },
 	deltaTime: { value: 0 },
@@ -64,7 +64,7 @@ export default class Renderer {
 	static set usePostprocessing( value ){
 
 		USE_POSTPROCESSING = value;
-		if( !DEBUG_FOLDERS.postprocessing ) DEBUG_FOLDERS.postprocessing = Configurator.addFolder("Postprocessings");
+
 		Configurator.refresh();
 
 	}
@@ -76,6 +76,9 @@ export default class Renderer {
 			alpha: true,
 			powerPreference: "high-performance"
 		});
+
+		INSTANCE.shadowMap.enabled = true;
+		INSTANCE.shadowMap.type = VSMShadowMap;
 
 		EventManager.on(window, "resize", Renderer.resize);
 
@@ -163,7 +166,7 @@ export default class Renderer {
 				]
 			}).on("change", ({ value }) => {
 
-				Renderer.instance.toneMapping = toneMappings[value];
+				Renderer.setToneMapping(toneMappings[value]);
 
 			});
 
@@ -189,18 +192,24 @@ export default class Renderer {
 		Renderer.resize();
 
 	}
+	static setToneMapping( toneMapping ){
+
+		Renderer.instance.toneMapping = toneMapping;
+		POSTPROCESSING?.setToneMapping(toneMapping);
+
+	}
 	static resize(){
 
 		const width = window.innerWidth * QUALITY;
 		const height = window.innerHeight * QUALITY;
 		const pixelRatio = Math.min(QUALITY < 1 ? 1 : 2, window.devicePixelRatio);
 
-		Renderer.screenSize.set(width, height);
+		Renderer.screenSize.set(width, height, pixelRatio);
 
 		Renderer.instance.setPixelRatio(pixelRatio);
 		Renderer.instance.setSize(width, height, false);
 
-		if( POSTPROCESSING ) POSTPROCESSING.setSize(width, height);
+		if( POSTPROCESSING ) POSTPROCESSING.setSize(width, height, pixelRatio);
 
 	}
 	static compile( element ){
@@ -213,33 +222,12 @@ export default class Renderer {
 		if( !POSTPROCESSING ){
 
 			Renderer.usePostprocessing = true;
-			POSTPROCESSING = new EffectComposer(Renderer.instance);
-
-			POSTPROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y);
-
-			POSTPROCESSING.addPass(new RenderPass(Renderer.scene, Renderer.camera));
+			POSTPROCESSING = new PostProcessing();
+			POSTPROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y, Renderer.screenSize.z);
 
 		}
 
-		POSTPROCESSING.addPass(pass);
-
-		if( DEBUG_FOLDERS.postprocessing ){
-
-			const folder = DEBUG_FOLDERS.postprocessing.addFolder({ title: pass.constructor.name });
-
-			folder.addBinding(pass, "enabled");
-
-			if( configurables instanceof Array ){
-
-				for( const [ target, key, label ] of configurables ){
-
-					folder.addBinding(target, key, label && { label });
-
-				}
-
-			}
-
-		}
+		return POSTPROCESSING.addPass(pass);
 
 	}
 	static update( currentTime, deltaTime ){

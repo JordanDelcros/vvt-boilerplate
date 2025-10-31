@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => ({
 		vue(),
 		glsl({
 			watch: true,
-			root: resolve(__dirname, "./webgl/shaders")
+			root: resolve(__dirname, "./webgl/shaders/chunks")
 		}),
 	],
 	css: {

@@ -1,4 +1,4 @@
-import { Assets, BaseMesh } from "#framework";
+import { Assets, BaseMesh, PostProcessing } from "#framework";
 import { BoxGeometry, MeshStandardMaterial } from "three";
 
 export default class Cube extends BaseMesh {
@@ -8,6 +8,7 @@ export default class Cube extends BaseMesh {
 
 		const geometry = new BoxGeometry(5, 5, 5);
 		const material = new MeshStandardMaterial({ map });
+		PostProcessing.patchMaterial(material);
 
 		super(geometry, material);
 

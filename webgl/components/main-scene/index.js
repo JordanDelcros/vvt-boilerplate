@@ -1,4 +1,5 @@
 import { Assets, BaseScene } from "#framework";
+import Background from "#webgl/components/background";
 import Cube from "#webgl/components/cube";
 
 export default class MainScene extends BaseScene {
@@ -10,6 +11,7 @@ export default class MainScene extends BaseScene {
 
 		this.environment = Assets.get("/maps/environment-big.exr");
 
+		this.add(Background);
 		this.add(Cube);
 
 	}

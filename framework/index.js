@@ -17,6 +17,7 @@ import EventManager from "./EventManager.js";
 import Input from "./Input.js";
 import Mapping from "./Mapping.js";
 import PostProcessing from "./PostProcessing.js";
+import PostProcessingPass from "./PostProcessingPass.js";
 import Randomness from "./Randomness.js";
 import Renderer from "./Renderer.js";
 import Timer from "./Timer.js";
@@ -44,6 +45,7 @@ window.$framework = {
 	Input,
 	Mapping,
 	PostProcessing,
+	PostProcessingPass,
 	Randomness,
 	Renderer,
 	Timer,
@@ -72,6 +74,7 @@ export {
 	Input,
 	Mapping,
 	PostProcessing,
+	PostProcessingPass,
 	Randomness,
 	Renderer,
 	Timer,

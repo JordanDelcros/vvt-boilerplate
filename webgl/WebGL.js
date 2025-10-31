@@ -11,7 +11,6 @@ export default class WebGL {
 
 		Renderer.setup(canvas);
 		Renderer.instance.setClearColor(0x000000, 1);
-		Renderer.instance.toneMapping = ACESFilmicToneMapping;
 
 		Audio.setup();
 		Input.setup();
@@ -30,33 +29,46 @@ export default class WebGL {
 
 		Renderer.setScene(this.scene);
 
-		const gtaoPass = new GTAOPass(Renderer.scene, Renderer.camera);
-		gtaoPass.gtaoMaterial.uniforms.radius.value = 0.09;
-		gtaoPass.gtaoMaterial.uniforms.thickness.value = 0.4;
-		gtaoPass.gtaoMaterial.uniforms.scale.value = 1.1;
-		gtaoPass.gtaoMaterial.uniforms.distanceFallOff.value = 0.86;
-		gtaoPass.gtaoMaterial.uniforms.distanceExponent.value = 2.0;
+		Renderer.addPass({
+			name: "bloom",
+			defines: {},
+			uniforms: {
+				veloute: { value: 0.05 },
+				ssaoThreshold: { value: 0.5 }
+			},
+			preprogram: `
+				vec3 jodieRobo2(const vec3 d){
+					float c=dot(d,vec3(.2126,.7152,.0722));
+					vec4 e=vec4(d,c)*inversesqrt(c*c+1.);
+					vec3 a=e.rgb;
+					float b=e.a;
+					float f=max(max(max(e.r,e.g),e.b),1.);
+					return (b*a-a-(f*b-b))/(b-f);
+				}
+			`,
+			program: `
+				vec3 unpackedNormal = unpackRGBToNormal(normal.rgb);
 
-		Renderer.addPass(gtaoPass, [
-			[gtaoPass.gtaoMaterial.uniforms.radius, "value", "radius"],
-			[gtaoPass.gtaoMaterial.uniforms.thickness, "value", "thickness"],
-			[gtaoPass.gtaoMaterial.uniforms.scale, "value", "scale"],
-			[gtaoPass.gtaoMaterial.uniforms.distanceFallOff, "value", "distanceFallOff"],
-			[gtaoPass.gtaoMaterial.uniforms.distanceExponent, "value", "distanceExponent"]
-		]);
+				vec4 blur = texture(tBlurColor, vUv);
+				vec3 bluredNormal = unpackRGBToNormal(texture(tBlurNormal, vUv).rgb);
 
-		const bloomPass = new UnrealBloomPass(Renderer.screenSize, 0.2, 0.05, 0.2);
-		Renderer.addPass(bloomPass, [
-			[bloomPass, "strength"],
-			[bloomPass, "radius"],
-			[bloomPass, "threshold"]
-		]);
+				vec4 outputColor = vec4(1.0);
 
-		// const blueNoisePass = new ShaderPass({});
+				// bloom
+				outputColor.rgb = 1.0 - (1.0 - color.rgb) * (1.0 - blur.rgb * veloute);
 
-		const outputPass = new OutputPass();
-		Renderer.addPass(outputPass);
+				// ssao
+				float normalDelta = distance(unpackedNormal, bluredNormal);
+				float aoMask = 1.0 - smoothstep(0.0, ssaoThreshold, normalDelta);
 
+				// outputColor = vec4(vec3(normalDistance), 1.0);
+
+				outColor = outputColor;
+				outNormal = normal;
+			`
+		});
+
+		Renderer.setToneMapping(ACESFilmicToneMapping);
 
 		Timer.add(this.update.bind(this));
 
