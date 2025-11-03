@@ -50,7 +50,8 @@ export default class PostProcessingPass {
 		uniforms = Object.assign({}, {
 			...Renderer.uniforms,
 			...this.layoutUniforms,
-			...uniforms
+			...uniforms,
+			resolution: { value: target.resolution }
 		});
 
 		this.material = new RawShaderMaterial({
