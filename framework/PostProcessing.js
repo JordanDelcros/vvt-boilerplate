@@ -26,22 +26,22 @@ export default class PostProcessing {
 
 		this.passes = new Array();
 
+		this.renderTargetSource = PostProcessing.createRenderTarget(["color", "normal"]);
 		this.renderTargetA = PostProcessing.createRenderTarget(["color", "normal"]);
-		this.renderTargetA.depthTexture.name ="RADepth"
 		this.renderTargetB = PostProcessing.createRenderTarget(["color", "normal"]);
-		this.blurRenderTarget = PostProcessing.createRenderTarget(["color", "normal", "depth"], 0.25);
+		this.fxRenderTarget = PostProcessing.createRenderTarget(["blurColor", "blurNormal", "blurDepth", "ssao"], 0.25);
 
-		this.blurPass = new PostProcessingPass({
-			name: "blur",
+		this.fxPass = new PostProcessingPass({
+			name: "fx",
 			autoSource: false,
-			source: this.renderTargetA,
-			target: this.blurRenderTarget,
+			source: this.renderTargetSource,
+			target: this.fxRenderTarget,
 			defines: {
 				SAMPLES: 5,
 				USE_NOISE: true
 			},
 			uniforms: {
-				tDepth: { value: this.renderTargetA.depthTexture },
+				tDepth: { value: this.renderTargetSource.depthTexture },
 				tNoise: { value: Assets.get("/maps/blue-noise.png") },
 				radius: { value: 0.01 },
 				noiseScale: { value: 10 },
@@ -87,26 +87,34 @@ export default class PostProcessing {
 				}
 			`,
 			program: `
-				outColor = blurMap(tColor, vUv);
-				outNormal = blurMap(tNormal, vUv);
-				outDepth = blurMap(tDepth, vUv);
+				outBlurColor = blurMap(tColor, vUv);
+				outBlurNormal = blurMap(tNormal, vUv);
+				outBlurDepth = blurMap(tDepth, vUv);
+				outSsao = vec4(0.0, 1.0, 0.0, 1.0);
 			`
 		});
 
 		this.outputPass = new PostProcessingPass({
 			name: "output",
 			output: true,
-			source: this.renderTargetA,
+			source: this.renderTargetSource,
 			target: this.renderTargetB,
 			defines: {
 				OUTPUT: "color"
 			},
 			uniforms: {
-				tBlurColor: { value: this.blurRenderTarget.textures[0] },
-				tBlurNormal: { value: this.blurRenderTarget.textures[1] },
-				tDepth: { value: this.renderTargetA.depthTexture },
-				tBlurDepth: { value: this.blurRenderTarget.textures[2] }
+				tBlurColor: { value: this.fxRenderTarget.textures[0] },
+				tBlurNormal: { value: this.fxRenderTarget.textures[1] },
+				tDepth: { value: this.renderTargetSource.depthTexture },
+				tBlurDepth: { value: this.fxRenderTarget.textures[2] }
 			},
+			preprogram: `
+				float linearizeDepth( float depth, float near, float far ){
+
+					return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
+
+				}
+			`,
 			program: `
 				vec4 blurColor = texture(tBlurColor, vUv);
 				vec4 blurNormal = texture(tBlurNormal, vUv);
@@ -148,9 +156,10 @@ export default class PostProcessing {
 	}
 	setSize( width, height, pixelRatio ){
 
+		this.renderTargetSource.setSize(width * pixelRatio * this.renderTargetSource.resolution, height * pixelRatio * this.renderTargetSource.resolution);
 		this.renderTargetA.setSize(width * pixelRatio * this.renderTargetA.resolution, height * pixelRatio * this.renderTargetA.resolution);
 		this.renderTargetB.setSize(width * pixelRatio * this.renderTargetB.resolution, height * pixelRatio * this.renderTargetB.resolution);
-		this.blurRenderTarget.setSize(width * this.blurRenderTarget.resolution, height * this.blurRenderTarget.resolution);
+		this.fxRenderTarget.setSize(width * this.fxRenderTarget.resolution, height * this.fxRenderTarget.resolution);
 
 	}
 	setToneMapping( toneMapping ){
@@ -166,10 +175,10 @@ export default class PostProcessing {
 		passData.uniforms ??= {};
 
 		Object.assign(passData.uniforms, {
-			tBlurColor: { value: this.blurRenderTarget.textures[0] },
-			tBlurNormal: { value: this.blurRenderTarget.textures[1] },
-			tDepth: { value: this.renderTargetA.depthTexture },
-			tBlurDepth: { value: this.blurRenderTarget.textures[2] }
+			tBlurColor: { value: this.fxRenderTarget.textures[0] },
+			tBlurNormal: { value: this.fxRenderTarget.textures[1] },
+			tDepth: { value: this.renderTargetSource.depthTexture },
+			tBlurDepth: { value: this.fxRenderTarget.textures[2] }
 		});
 
 		const pass = new PostProcessingPass(passData);
@@ -182,31 +191,29 @@ export default class PostProcessing {
 	render(){
 
 		// main
-		Renderer.instance.setRenderTarget(this.renderTargetA);
+		Renderer.instance.setRenderTarget(this.renderTargetSource);
 		Renderer.instance.render(Renderer.scene, Renderer.camera);
 
 		// blur
-		this.blurPass.render(this.scene, this.camera);
+		this.fxPass.render(this.scene, this.camera);
 
-		let sourceRenderTarget = this.renderTargetA;
+		let lastRenderTarget = this.renderTargetSource;
 		// passes
 		for( let index = 0; index < this.passes.length; index++ ){
 
 			const renderTarget = index % 2 === 0 ? this.renderTargetB : this.renderTargetA;
 
 			const pass = this.passes[index];
-			pass.setSources(sourceRenderTarget);
+			pass.setSources(lastRenderTarget);
+			pass.setTarget(renderTarget);
+			pass.render(this.scene, this.camera);
 
-			Renderer.instance.setRenderTarget(renderTarget);
-			this.scene.overrideMaterial = pass.material;
-			Renderer.instance.render(this.scene, this.camera);
-
-			sourceRenderTarget = renderTarget;
+			lastRenderTarget = renderTarget;
 
 		}
 
 		// output
-		this.outputPass.setSources(sourceRenderTarget);
+		this.outputPass.setSources(lastRenderTarget);
 		this.outputPass.render(this.scene, this.camera);
 
 	}
@@ -243,13 +250,38 @@ export default class PostProcessing {
 	}
 	static patchShader( shader ){
 
+		if( !/<packing>/.test(shader.fragmentShader) ){
+
+			shader.fragmentShader = shader.fragmentShader.replace("void main()", `
+				vec3 packNormalToRGB( const in vec3 normal ){
+					return normalize(normal) * 0.5 + 0.5;
+				}
+
+				void main()
+			`);
+
+		}
+
+		if( !/#define STANDARD/.test(shader.vertexShader) ){
+
+			shader.vertexShader = shader.vertexShader.replace("void main()", `
+				varying vec3 vNormal;
+				void main()
+			`);
+			shader.vertexShader = shader.vertexShader.replace(/}$/, `
+				vNormal = normalize(normal);
+				}
+			`);
+
+		}
+
 		shader.fragmentShader = shader.fragmentShader
 			.replace("void main()", `
-				layout(location = 1) out vec4 pc_fragNormal;
+				layout(location = 1) out vec4 outNormal;
 				void main()
 			`)
 			.replace(/}$/, `
-				pc_fragNormal = vec4(packNormalToRGB(vNormal), 1.0);
+				outNormal = vec4(packNormalToRGB(vNormal), 1.0);
 			}
 			`);
 

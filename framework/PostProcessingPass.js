@@ -1,5 +1,5 @@
 import { Configurator, PostProcessing, Renderer } from "#framework";
-import { RawShaderMaterial, ColorManagement, Vector2, Vector3, Vector4, Texture, GLSL3, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, SRGBTransfer } from "three";
+import { RawShaderMaterial, ColorManagement, Vector2, Vector3, Vector4, Matrix2, Matrix3, Matrix4, Texture, GLSL3, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, SRGBTransfer } from "three";
 
 export default class PostProcessingPass {
 	static get vertexShader(){
@@ -101,6 +101,9 @@ export default class PostProcessingPass {
 						uniforms[key].value instanceof Vector2 ? "vec2" :
 						uniforms[key].value instanceof Vector3 ? "vec3" :
 						uniforms[key].value instanceof Vector4 ? "vec4" :
+						uniforms[key].value instanceof Matrix4 ? "mat4" :
+						uniforms[key].value instanceof Matrix3 ? "mat3" :
+						uniforms[key].value instanceof Matrix2 ? "mat2" :
 						uniforms[key].value instanceof Texture ? "sampler2D" : "float";
 
 					return `uniform ${type} ${key};`;
@@ -161,7 +164,7 @@ export default class PostProcessingPass {
 
 			for( const name in this.material.uniforms ){
 
-				if( !this.material.uniforms.hasOwnProperty(name) || Renderer.uniforms[name] === this.material.uniforms[name] || this.material.uniforms[name].value instanceof Texture ) continue;
+				if( !this.material.uniforms.hasOwnProperty(name) || Renderer.uniforms[name] === this.material.uniforms[name] || this.material.uniforms[name].value.isTexture || this.material.uniforms[name].value.isMatrix4 || this.material.uniforms[name].value.isMatrix3 || this.material.uniforms[name].value.isMatrix2 ) continue;
 
 				folder.addBinding(this.material.uniforms[name], "value", { label: name });
 
@@ -174,7 +177,6 @@ export default class PostProcessingPass {
 
 		this.material.uniforms.tColor.value = renderTarget.textures[0];
 		this.material.uniforms.tNormal.value = renderTarget.textures[1];
-		// this.material.uniforms.tDepth.value = renderTarget.depthTexture;
 
 	}
 	setTarget( renderTarget ){

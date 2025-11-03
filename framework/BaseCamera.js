@@ -55,6 +55,8 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 
 		if( this.controls ) return;
 
+		this.getWorldDirection(this.worldDirection);
+
 		this.originalState.position.copy(this.position);
 		this.originalState.quaternion.copy(this.quaternion);
 

@@ -5,7 +5,7 @@ export default class Background extends BaseMesh {
 	constructor(){
 
 		const geometry = new SphereGeometry(50, 32, 16);
-		const material = new MeshBasicMaterial({ color: 0x000000, side: BackSide });
+		const material = new MeshBasicMaterial({ color: 0xFFFFFF, side: BackSide });
 		PostProcessing.patchMaterial(material);
 
 		super(geometry, material);

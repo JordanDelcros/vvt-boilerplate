@@ -2,7 +2,7 @@ import { BaseMixin, BaseCamera, EventManager, Renderer } from "#framework";
 import { Scene, PerspectiveCamera, OrthographicCamera } from "three";
 
 export default class BaseScene extends BaseMixin(Scene) {
-	constructor({ orthographic = false, fov = 50, near = 0.1, far = 1000 } = {}){
+	constructor({ orthographic = false, fov = 50, near = 0.1, far = 100 } = {}){
 
 		super();
 

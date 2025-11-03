@@ -217,7 +217,7 @@ export default class Renderer {
 		Renderer.instance.compile(Renderer.scene, Renderer.camera, element);
 
 	}
-	static addPass( pass, configurables = null ){
+	static addPass( pass ){
 
 		if( !POSTPROCESSING ){
 
