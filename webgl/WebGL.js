@@ -33,7 +33,7 @@ export default class WebGL {
 			name: "fx",
 			defines: {},
 			uniforms: {
-				veloute: { value: 0.2 }
+				bloom: { value: 0.2 }
 			},
 			program: `
 				vec3 unpackedNormal = unpackRGBToNormal(normal.rgb);
@@ -43,11 +43,11 @@ export default class WebGL {
 
 				vec4 outputColor = color;
 
-				// bloom
-				// outputColor.rgb = 1.0 - (1.0 - color.rgb) * (1.0 - blur.rgb * veloute);
-
 				// ssao
 				outputColor.rgb *= texture(tSsao, vUv).r;
+
+				// bloom
+				outputColor.rgb = 1.0 - (1.0 - outputColor.rgb) * (1.0 - blur.rgb * bloom);
 
 				outColor = outputColor;
 				outNormal = normal;

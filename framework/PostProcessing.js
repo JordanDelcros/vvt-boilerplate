@@ -30,7 +30,7 @@ export default class PostProcessing {
 		this.renderTargetSource = this.createRenderTarget(["color", "normal"]);
 		this.renderTargetA = this.createRenderTarget(["color", "normal"], false);
 		this.renderTargetB = this.createRenderTarget(["color", "normal"], false);
-		this.fxRenderTarget = this.createRenderTarget(["blurColor", "blurNormal", "blurDepth", "ssao"], false, 0.25);
+		this.fxRenderTarget = this.createRenderTarget(["blurColor", "blurNormal", "blurDepth", "ssao"], false, 0.5);
 
 		this.fxPass = new PostProcessingPass({
 			name: "fx",
@@ -48,59 +48,15 @@ export default class PostProcessing {
 				cameraFar: { value: Renderer.camera.far },
 				projectionMatrix: { value: Renderer.camera.projectionMatrix },
 				inverseProjectionMatrix: { value: Renderer.camera.projectionMatrixInverse },
-				noiseScale: { value: 5 },
-				blurRadius: { value: 0.02 },
-				blurNoiseForce: { value: 0.001 },
-				ssaoRadius: { value: 2 },
-				ssaoStrength: { value: 2 },
+				noiseScale: { value: 1 },
+				blurRadius: { value: 10 },
+				blurNoiseForce: { value: 0.005 },
+				ssaoRadius: { value: 1.2 },
+				ssaoStrength: { value: 1.5 },
 				ssaoBias: { value: 0.1 },
 				ssaoThreshold: { value: Renderer.camera.far * 0.3 }
 			},
 			preprogram: `
-				vec4 blurMap( sampler2D map, vec2 uv, in vec2 noise ){
-
-					vec4 sum = vec4(0.0);
-
-					float angleStep = 6.28318530718 / float(BLUR_SAMPLES);
-					float totalWeight = 0.0;
-
-					for( int sampleIndex = 0; sampleIndex < BLUR_SAMPLES; sampleIndex++) {
-
-						float angle = float(sampleIndex) * angleStep;
-						vec2 dir = vec2(cos(angle), sin(angle));
-
-						sum += texture(map, vUv);
-						totalWeight += 1.0;
-
-						for( int r = 1; r <= 4; r++ ){
-
-							float t = float(r) / 4.0;
-							vec2 offset = (dir * (t * blurRadius)) + noise;
-							sum += texture(map, vUv + offset);
-							sum += texture(map, vUv - offset);
-							totalWeight += 2.0;
-
-						}
-					}
-
-					return sum / totalWeight;
-
-				}
-
-				float linearizeDepth( float depth, float near, float far ){
-
-					return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
-
-				}
-
-				vec3 getViewPosition( vec2 screenPosition, float depth ){
-
-					vec4 clipSpacePosition = vec4(screenPosition * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-					vec4 viewSpacePosition = inverseProjectionMatrix * clipSpacePosition;
-					return viewSpacePosition.xyz / viewSpacePosition.w;
-
-				}
-
 				const int KERNEL_SIZE = 32;
 				const vec3 SSAO_KERNEL[KERNEL_SIZE] = vec3[KERNEL_SIZE](
 					vec3(0.04977, -0.04471, 0.04996),
@@ -136,14 +92,63 @@ export default class PostProcessing {
 					vec3(-0.01419, -0.13747, 0.07126),
 					vec3(0.12352, 0.15173, 0.10208)
 				);
+
+				const int M = 4;
+				const float coeffs[M + 1] = float[M + 1](
+					0.19947114020071635,
+					0.17467622497531212,
+					0.12098536225957168,
+					0.06559408169628264,
+					0.02780101304479639
+				);
+
+				vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
+					vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
+
+					vec2 horizontal = vec2(texelSize.x, 0.0);
+					vec2 vertical = vec2(0.0, texelSize.y);
+
+					vec4 blurred = coeffs[0] * texture(map, uv + noise);
+
+					for( int i = 1; i < 4; i += 2 ){
+						float w0 = coeffs[i];
+						float w1 = coeffs[i + 1];
+						float w = w0 + w1;
+						float offset = float(i) + w1 / w;
+						
+						blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
+						blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
+
+						blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
+						blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
+					}
+
+					return blurred * 0.5;
+
+				}
+
+				float linearizeDepth( float depth, float near, float far ){
+
+					return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
+
+				}
+
+				vec3 getViewPosition( vec2 screenPosition, float depth ){
+
+					vec4 clipSpacePosition = vec4(screenPosition * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+					vec4 viewSpacePosition = inverseProjectionMatrix * clipSpacePosition;
+					return viewSpacePosition.xyz / viewSpacePosition.w;
+
+				}
 			`,
 			program: `
 				float ratio = screenSize.x / screenSize.y;
-				vec3 noise = texture(tNoise, fract(vUv * noiseScale * vec2(ratio, 1.0) + mod(currentTime * 0.1, 1000.0))).xyz * noiseScale;
+				vec3 noise = texture(tNoise, fract(vUv * 5.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
 
-				outBlurColor = blurMap(tColor, vUv, noise.rb);
-				outBlurNormal = blurMap(tNormal, vUv, noise.rb);
-				outBlurDepth = blurMap(tDepth, vUv, noise.rb);
+				// blurs
+				outBlurColor = blurMap(tColor, vUv, noise.rb * blurNoiseForce);
+				outBlurNormal = blurMap(tNormal, vUv, noise.rb * blurNoiseForce);
+				outBlurDepth = blurMap(tDepth, vUv, noise.rb * blurNoiseForce);
 
 				// ssao
 				vec3 unpackedNormal = unpackRGBToNormal(texture(tNormal, vUv).rgb);
@@ -151,50 +156,54 @@ export default class PostProcessing {
 				float linearDepth = linearizeDepth(rawDepth, cameraNear, cameraFar);
 
 				float ssao = 1.0;
-				if( rawDepth > 0.0 ){
+				if (rawDepth < 0.9999 && linearDepth < ssaoThreshold) {
 
 					vec3 viewPos = getViewPosition(vUv, rawDepth);
+					float depth = -viewPos.z;
 					vec3 viewNormal = normalize((inverseProjectionMatrix * vec4(unpackedNormal, 0.0)).xyz);
 
-					float noiseX = fract(sin(dot(vUv, vec2(12.9898, 78.233))) * 43758.5453);
-					float noiseY = fract(sin(dot(vUv, vec2(93.9898, 67.345))) * 43758.5453);
-					vec3 randomVec = vec3(noiseX * 2.0 - 1.0, noiseY * 2.0 - 1.0, 0.0);
-					// randomVec += noise * 5.0;
-
-					vec3 tangent = normalize(randomVec - viewNormal * dot(randomVec, viewNormal));
-					vec3 bitangent = cross(viewNormal, tangent);
-					mat3 tbn = mat3(tangent, bitangent, viewNormal);
-
-					float occlusion = 0.0;
-
-					for( int i = 0; i < KERNEL_SIZE; i++ ){
-
-						vec3 samplePos = tbn * SSAO_KERNEL[i];
-						samplePos = viewPos + samplePos * ssaoRadius;
-						
-						vec4 offset = vec4(samplePos, 1.0);
-						offset = projectionMatrix * offset;
-						offset.xyz /= offset.w;
-						offset.xy = offset.xy * 0.5 + 0.5;
-						
-						if( offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0 ) continue;
-						
-						float sampleRawDepth = texture(tDepth, offset.xy).r;
-						
-						if( sampleRawDepth >= 0.9999 ) continue;
-						
-						vec3 sampleViewPos = getViewPosition(offset.xy, sampleRawDepth);
-						
-						float rangeCheck = smoothstep(0.0, 1.0, ssaoRadius / abs(viewPos.z - sampleViewPos.z));
-						
-						float occluded = step(samplePos.z, sampleViewPos.z - ssaoBias);
-						
-						occlusion += occluded * rangeCheck;
-
+					mat3 tbn;
+					vec3 fallback = vec3(0.0, 0.0, -1.0);
+					if( abs(dot(viewNormal, fallback)) > 0.95 ){
+						vec3 up = abs(viewNormal.x) > 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
+						vec3 tangent = normalize(cross(up, viewNormal));
+						vec3 bitangent = cross(viewNormal, tangent);
+						tbn = mat3(tangent, bitangent, viewNormal);
+					}
+					else {
+						vec3 randomVec = normalize(noise * 2.0 - 1.0);
+						randomVec.z = sqrt(max(0.0, 1.0 - randomVec.x*randomVec.x - randomVec.y*randomVec.y));
+						vec3 tangent = normalize(randomVec - viewNormal * dot(randomVec, viewNormal));
+						vec3 bitangent = cross(viewNormal, tangent);
+						tbn = mat3(tangent, bitangent, viewNormal);
 					}
 
-					ssao = 1.0 - clamp((occlusion / float(KERNEL_SIZE)) * ssaoStrength, 0.0, 1.0);
+					float dynamicRadius = ssaoRadius * clamp(depth / 10.0, 0.1, 3.0);
 
+					float occlusion = 0.0;
+					for (int i = 0; i < KERNEL_SIZE; i++) {
+						vec3 samplePos = tbn * SSAO_KERNEL[i];
+						samplePos = viewPos + samplePos * dynamicRadius;
+
+						vec4 offset = projectionMatrix * vec4(samplePos, 1.0);
+						offset.xyz /= offset.w;
+						offset.xy = offset.xy * 0.5 + 0.5;
+
+						if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) continue;
+
+						float sampleRawDepth = texture(tDepth, offset.xy).r;
+						if (sampleRawDepth >= 0.9999) continue;
+
+						vec3 sampleViewPos = getViewPosition(offset.xy, sampleRawDepth);
+
+						float rangeCheck = smoothstep(0.0, 1.0, dynamicRadius / abs(viewPos.z - sampleViewPos.z));
+						float bias = ssaoBias * depth * 0.05;
+						float occluded = smoothstep(0.0, 1.0, (sampleViewPos.z - samplePos.z - bias) / (bias * 4.0));
+
+						occlusion += occluded * rangeCheck;
+					}
+
+					ssao = 1.0 - clamp(occlusion / float(KERNEL_SIZE) * ssaoStrength, 0.0, 1.0);
 				}
 
 				outSsao = vec4(vec3(ssao), 1.0);

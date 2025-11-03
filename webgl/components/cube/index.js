@@ -15,8 +15,8 @@ export default class Cube extends BaseMesh {
 	}
 	update( currentTime, deltaTime ){
 
-		// this.rotation.x += deltaTime * 0.00005;
-		// this.rotation.y -= deltaTime * 0.00005;
+		this.rotation.x += deltaTime * 0.00005;
+		this.rotation.y -= deltaTime * 0.00005;
 
 	}
 }

@@ -15,9 +15,13 @@ export default {
 		useCache: true
 	},
 	renderer: {
-		antialias: true,
+		antialias: false,
 		// run the webgl only when exiting the loader (user input)
-		awaitLoaderExit: false
+		awaitLoaderExit: false,
+	},
+	postProcessing: {
+		enabled: true,
+		ssao: true
 	},
 	configurator: {
 		// toggle configurator tool
