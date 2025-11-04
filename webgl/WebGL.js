@@ -5,6 +5,7 @@ import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import config from "#root/config.js";
 
 export default class WebGL {
 	constructor( canvas ){
@@ -26,35 +27,38 @@ export default class WebGL {
 	run(){
 
 		this.scene = new MainScene();
-
 		Renderer.setScene(this.scene);
 
-		Renderer.addPass({
+		Renderer.setToneMapping(ACESFilmicToneMapping);
+
+		Renderer.postProcessing.addPass({
 			name: "fx",
-			defines: {},
+			defines: {
+				USE_BLOOM: config.postProcessing.blur,
+				USE_SSAO: config.postProcessing.ssao
+			},
 			uniforms: {
-				bloom: { value: 0.2 }
+				bloom: { value: 0.25 }
 			},
 			program: `
-				vec3 unpackedNormal = unpackRGBToNormal(normal.rgb);
-
-				vec4 blur = texture(tBlurColor, vUv);
-				// vec3 bluredNormal = unpackRGBToNormal(texture(tBlurNormal, vUv).rgb);
 
 				vec4 outputColor = color;
 
 				// ssao
+				#ifdef USE_SSAO
 				outputColor.rgb *= texture(tSsao, vUv).r;
+				#endif
 
 				// bloom
+				#ifdef USE_BLOOM
+				vec4 blur = texture(tBlurColor, vUv);
 				outputColor.rgb = 1.0 - (1.0 - outputColor.rgb) * (1.0 - blur.rgb * bloom);
+				#endif
 
 				outColor = outputColor;
 				outNormal = normal;
 			`
 		});
-
-		Renderer.setToneMapping(ACESFilmicToneMapping);
 
 		Timer.add(this.update.bind(this));
 

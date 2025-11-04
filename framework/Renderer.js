@@ -1,4 +1,4 @@
-import { BaseScene, Configurator, EventManager, Mapping, PostProcessing, Timer } from "#framework";
+import { Assets, BaseScene, Configurator, EventManager, Mapping, PostProcessing, Timer } from "#framework";
 import { Scene, WebGLRenderer, Vector3, VSMShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -17,8 +17,9 @@ const GLOBAL_UNIFORMS = {
 const IGNORED_MATERIAL_PROPERTIES = [];
 
 let QUALITY = 1;
-let USE_POSTPROCESSING = false;
-let POSTPROCESSING = null;
+
+let POST_PROCESSING = null;
+
 let DEBUG_FOLDERS = {
 	info: null,
 	renderer: null,
@@ -58,31 +59,30 @@ export default class Renderer {
 	}
 	static get usePostprocessing(){
 
-		return USE_POSTPROCESSING;
+		return POST_PROCESSING?.active ?? false;
 
 	}
 	static set usePostprocessing( value ){
 
-		USE_POSTPROCESSING = value;
+		if( POST_PROCESSING ) POST_PROCESSING.active = value;
 
-		Configurator.refresh();
+	}
+	static get postProcessing(){
+
+		return POST_PROCESSING;
 
 	}
 	static setup( canvas, scene = null ){
 
 		INSTANCE = new WebGLRenderer({
 			canvas,
-			antialias: config.renderer.antialias,
-			alpha: true,
+			antialias: config.renderer.antialias && !config.postProcessing.enabled,
+			alpha: config.renderer.a,
 			powerPreference: "high-performance"
 		});
 
 		INSTANCE.shadowMap.enabled = true;
 		INSTANCE.shadowMap.type = VSMShadowMap;
-
-		EventManager.on(window, "resize", Renderer.resize);
-
-		Renderer.resize();
 
 		if( Configurator.active ){
 
@@ -174,16 +174,32 @@ export default class Renderer {
 
 		}
 
+		POST_PROCESSING = new PostProcessing({ toneMapping: Renderer.instance.toneMapping });
+		POST_PROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y, Renderer.screenSize.z);
+
+		EventManager.on(window, "resize", Renderer.resize);
+
+		Renderer.resize();
+
+		Assets.userValidation.then(() => { 
+
+			POST_PROCESSING.setup();
+			Configurator.refresh();
+
+		});
+
 		Renderer.setScene(scene ? scene : new BaseScene());
 
 	}
 	static setScene( scene ){
 
-		if( !(scene instanceof BaseScene) ) return console.error("given scene is not an instance of BaseScene:", scene);
+		if( !(scene instanceof BaseScene) ) return console.error("Given scene is not an instance of BaseScene:", scene);
 
 		SCENE?.dispose();
 
 		SCENE = scene;
+		console.log("SET SCENE");
+		POST_PROCESSING?.setScene(scene);
 
 	}
 	static setQuality( value ){
@@ -195,7 +211,7 @@ export default class Renderer {
 	static setToneMapping( toneMapping ){
 
 		Renderer.instance.toneMapping = toneMapping;
-		POSTPROCESSING?.setToneMapping(toneMapping);
+		POST_PROCESSING?.setToneMapping(toneMapping);
 
 	}
 	static resize(){
@@ -209,25 +225,12 @@ export default class Renderer {
 		Renderer.instance.setPixelRatio(pixelRatio);
 		Renderer.instance.setSize(width, height, false);
 
-		if( POSTPROCESSING ) POSTPROCESSING.setSize(width, height, pixelRatio);
+		POST_PROCESSING?.setSize(width, height, pixelRatio);
 
 	}
 	static compile( element ){
 
 		Renderer.instance.compile(Renderer.scene, Renderer.camera, element);
-
-	}
-	static addPass( pass ){
-
-		if( !POSTPROCESSING ){
-
-			Renderer.usePostprocessing = true;
-			POSTPROCESSING = new PostProcessing();
-			POSTPROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y, Renderer.screenSize.z);
-
-		}
-
-		return POSTPROCESSING.addPass(pass);
 
 	}
 	static update( currentTime, deltaTime ){
@@ -243,7 +246,7 @@ export default class Renderer {
 
 		});
 
-		if( Renderer.usePostprocessing ) POSTPROCESSING.render();
+		if( Renderer.usePostprocessing ) POST_PROCESSING.render();
 		else Renderer.instance.render(Renderer.scene, Renderer.camera);
 
 		Configurator.frameEnd();

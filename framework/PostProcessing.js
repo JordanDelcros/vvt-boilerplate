@@ -1,5 +1,6 @@
 import { Assets, Configurator, Renderer, PostProcessingPass } from "#framework";
-import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, LinearFilter } from "three";
+import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
+import config from "#root/config.js";
 
 const TRIANGLE = new BufferGeometry()
 	.setAttribute("position", new BufferAttribute(new Float32Array([-2, 0, 0, 0, -2, 0, 2, 2, 0]), 3));
@@ -20,8 +21,12 @@ export default class PostProcessing {
 
 		}
 
-		this.scene = new Scene();
+		this.isSetup = false;
+		this.active = true;
 
+		this.targetScene = Renderer.scene;
+
+		this.scene = new Scene();
 		this.camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
 		this.renderTargets = new Array();
@@ -30,7 +35,67 @@ export default class PostProcessing {
 		this.renderTargetSource = this.createRenderTarget(["color", "normal"]);
 		this.renderTargetA = this.createRenderTarget(["color", "normal"], false);
 		this.renderTargetB = this.createRenderTarget(["color", "normal"], false);
-		this.fxRenderTarget = this.createRenderTarget(["blurColor", "blurNormal", "blurDepth", "ssao"], false, 0.5);
+		this.fxRenderTarget = this.createRenderTarget([
+			...(config.postProcessing.blur ? ["blurColor", "blurNormal", "blurDepth"] : []),
+			...(config.postProcessing.ssao ? ["ssao"] : [])
+		], false, 0.5);
+
+		console.log({
+				tDepth: { value: this.renderTargetSource.depthTexture },
+				...(config.postProcessing.blur ? {
+					tBlurColor: { value: this.fxRenderTarget.textures[0] },
+					tBlurNormal: { value: this.fxRenderTarget.textures[1] },
+					tBlurDepth: { value: this.fxRenderTarget.textures[2] }
+				} : {}),
+				...(config.postProcessing.ssao ? { tSsao: { value: this.fxRenderTarget.textures[3] } } : {})
+			})
+
+		this.outputPass = new PostProcessingPass({
+			name: "output",
+			output: true,
+			source: this.renderTargetSource,
+			target: this.renderTargetB,
+			defines: {
+				OUTPUT: "color",
+				USE_BLUR: config.postProcessing.blur,
+				USE_SSAO: config.postProcessing.ssao
+			},
+			uniforms: {
+				tDepth: { value: this.renderTargetSource.depthTexture },
+				...(config.postProcessing.blur ? {
+					tBlurColor: { value: this.fxRenderTarget.textures[0] },
+					tBlurNormal: { value: this.fxRenderTarget.textures[1] },
+					tBlurDepth: { value: this.fxRenderTarget.textures[2] }
+				} : {}),
+				...(config.postProcessing.ssao ? { tSsao: { value: this.fxRenderTarget.textures[3] } } : {})
+			},
+			program: `
+				vec4 depth = texture(tDepth, vUv);
+				
+				#ifdef USE_BLUR
+				vec4 blurColor = texture(tBlurColor, vUv);
+				vec4 blurNormal = texture(tBlurNormal, vUv);
+				vec4 blurDepth = texture(tBlurDepth, vUv);
+				blurDepth.r = 1.0 - blurDepth.r;
+				#endif
+				
+				#ifdef USE_SSAO
+				vec4 ssao = texture(tSsao, vUv);
+				#endif
+
+				outColor = OUTPUT;
+				outNormal = normal;
+			`
+		});
+
+		this.scene.add(new Mesh(TRIANGLE, this.outputPass.material));
+
+	}
+	setup({ toneMapping } = {}){
+
+		if( this.isSetup ) return;
+
+		this.isSetup = true;
 
 		this.fxPass = new PostProcessingPass({
 			name: "fx",
@@ -38,25 +103,28 @@ export default class PostProcessing {
 			source: this.renderTargetSource,
 			target: this.fxRenderTarget,
 			defines: {
+				USE_BLUR: config.postProcessing.blur,
+				USE_SSAO: config.postProcessing.ssao,
 				BLUR_SAMPLES: 5
 			},
 			uniforms: {
 				...Renderer.uniforms,
 				tDepth: { value: this.renderTargetSource.depthTexture },
 				tNoise: { value: Assets.get("/maps/blue-noise.png") },
-				cameraNear: { value: Renderer.camera.near },
-				cameraFar: { value: Renderer.camera.far },
-				projectionMatrix: { value: Renderer.camera.projectionMatrix },
-				inverseProjectionMatrix: { value: Renderer.camera.projectionMatrixInverse },
+				cameraNear: { value: 0 },
+				cameraFar: { value: 100 },
+				projectionMatrix: { value: this.targetScene?.camera.projectionMatrix ?? new Matrix4() },
+				inverseProjectionMatrix: { value: this.targetScene?.camera.projectionMatrixInverse ?? new Matrix4() },
 				noiseScale: { value: 1 },
 				blurRadius: { value: 10 },
 				blurNoiseForce: { value: 0.005 },
 				ssaoRadius: { value: 1.2 },
 				ssaoStrength: { value: 1.5 },
 				ssaoBias: { value: 0.1 },
-				ssaoThreshold: { value: Renderer.camera.far * 0.3 }
+				ssaoThreshold: { value: 50 }
 			},
 			preprogram: `
+				#ifdef USE_SSAO
 				const int KERNEL_SIZE = 32;
 				const vec3 SSAO_KERNEL[KERNEL_SIZE] = vec3[KERNEL_SIZE](
 					vec3(0.04977, -0.04471, 0.04996),
@@ -93,6 +161,22 @@ export default class PostProcessing {
 					vec3(0.12352, 0.15173, 0.10208)
 				);
 
+				float linearizeDepth( float depth, float near, float far ){
+
+					return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
+
+				}
+
+				vec3 getViewPosition( vec2 screenPosition, float depth ){
+
+					vec4 clipSpacePosition = vec4(screenPosition * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+					vec4 viewSpacePosition = inverseProjectionMatrix * clipSpacePosition;
+					return viewSpacePosition.xyz / viewSpacePosition.w;
+
+				}
+				#endif
+
+				#ifdef USE_BLUR
 				const int M = 4;
 				const float coeffs[M + 1] = float[M + 1](
 					0.19947114020071635,
@@ -126,37 +210,27 @@ export default class PostProcessing {
 					return blurred * 0.5;
 
 				}
-
-				float linearizeDepth( float depth, float near, float far ){
-
-					return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
-
-				}
-
-				vec3 getViewPosition( vec2 screenPosition, float depth ){
-
-					vec4 clipSpacePosition = vec4(screenPosition * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-					vec4 viewSpacePosition = inverseProjectionMatrix * clipSpacePosition;
-					return viewSpacePosition.xyz / viewSpacePosition.w;
-
-				}
+				#endif
 			`,
 			program: `
 				float ratio = screenSize.x / screenSize.y;
 				vec3 noise = texture(tNoise, fract(vUv * 5.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
 
 				// blurs
+				#ifdef USE_BLUR
 				outBlurColor = blurMap(tColor, vUv, noise.rb * blurNoiseForce);
 				outBlurNormal = blurMap(tNormal, vUv, noise.rb * blurNoiseForce);
 				outBlurDepth = blurMap(tDepth, vUv, noise.rb * blurNoiseForce);
+				#endif
 
 				// ssao
+				#ifdef USE_SSAO
 				vec3 unpackedNormal = unpackRGBToNormal(texture(tNormal, vUv).rgb);
 				float rawDepth = texture(tDepth, vUv).r;
 				float linearDepth = linearizeDepth(rawDepth, cameraNear, cameraFar);
 
 				float ssao = 1.0;
-				if (rawDepth < 0.9999 && linearDepth < ssaoThreshold) {
+				if( rawDepth < 0.9999 && linearDepth < ssaoThreshold ){
 
 					vec3 viewPos = getViewPosition(vUv, rawDepth);
 					float depth = -viewPos.z;
@@ -181,7 +255,8 @@ export default class PostProcessing {
 					float dynamicRadius = ssaoRadius * clamp(depth / 10.0, 0.1, 3.0);
 
 					float occlusion = 0.0;
-					for (int i = 0; i < KERNEL_SIZE; i++) {
+					for( int i = 0; i < KERNEL_SIZE; i++ ){
+
 						vec3 samplePos = tbn * SSAO_KERNEL[i];
 						samplePos = viewPos + samplePos * dynamicRadius;
 
@@ -189,10 +264,10 @@ export default class PostProcessing {
 						offset.xyz /= offset.w;
 						offset.xy = offset.xy * 0.5 + 0.5;
 
-						if (offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0) continue;
+						if( offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0 ) continue;
 
 						float sampleRawDepth = texture(tDepth, offset.xy).r;
-						if (sampleRawDepth >= 0.9999) continue;
+						if( sampleRawDepth >= 0.9999 ) continue;
 
 						vec3 sampleViewPos = getViewPosition(offset.xy, sampleRawDepth);
 
@@ -201,45 +276,19 @@ export default class PostProcessing {
 						float occluded = smoothstep(0.0, 1.0, (sampleViewPos.z - samplePos.z - bias) / (bias * 4.0));
 
 						occlusion += occluded * rangeCheck;
+
 					}
 
 					ssao = 1.0 - clamp(occlusion / float(KERNEL_SIZE) * ssaoStrength, 0.0, 1.0);
+
 				}
 
 				outSsao = vec4(vec3(ssao), 1.0);
+				#endif
 			`
 		});
 
-		this.outputPass = new PostProcessingPass({
-			name: "output",
-			output: true,
-			source: this.renderTargetSource,
-			target: this.renderTargetB,
-			defines: {
-				OUTPUT: "color"
-			},
-			uniforms: {
-				tBlurColor: { value: this.fxRenderTarget.textures[0] },
-				tBlurNormal: { value: this.fxRenderTarget.textures[1] },
-				tDepth: { value: this.renderTargetSource.depthTexture },
-				tBlurDepth: { value: this.fxRenderTarget.textures[2] },
-				tSsao: { value: this.fxRenderTarget.textures[3] }
-			},
-			program: `
-				vec4 blurColor = texture(tBlurColor, vUv);
-				vec4 blurNormal = texture(tBlurNormal, vUv);
-				vec4 depth = texture(tDepth, vUv);
-				depth.r = 1.0 - depth.r;
-				vec4 blurDepth = texture(tBlurDepth, vUv);
-				blurDepth.r = 1.0 - blurDepth.r;
-				vec4 ssao = texture(tSsao, vUv);
-
-				outColor = OUTPUT;
-				outNormal = normal;
-			`
-		});
-
-		this.scene.add(new Mesh(TRIANGLE, this.outputPass.material));
+		if( toneMapping ) this.toneMapping(toneMapping);
 
 		if( Configurator.active ){
 
@@ -254,7 +303,7 @@ export default class PostProcessing {
 					{ text: "blur normal", value: "blurNormal" },
 					{ text: "depth", value: "depth" },
 					{ text: "blur depth", value: "blurDepth" },
-					{ text: "ssao", value: "ssao" }
+					...(config.postProcessing.ssao ? [{ text: "ssao", value: "ssao" }] : [])
 				]
 			}).on("change", ({ value }) => {
 
@@ -262,6 +311,20 @@ export default class PostProcessing {
 				this.outputPass.material.needsUpdate = true;
 
 			});
+
+		}
+
+	}
+	setScene( scene ){
+
+		this.targetScene = scene;
+
+		if( this.isSetup ){
+
+			this.fxPass.material.uniforms.cameraNear.value = scene.camera.near;
+			this.fxPass.material.uniforms.cameraFar.value = scene.camera.far;
+			this.fxPass.material.uniforms.projectionMatrix.value = scene.camera.projectionMatrix;
+			this.fxPass.material.uniforms.inverseProjectionMatrix.value = scene.camera.projectionMatrixInverse;
 
 		}
 
@@ -291,11 +354,13 @@ export default class PostProcessing {
 		passData.uniforms ??= {};
 
 		Object.assign(passData.uniforms, {
-			tBlurColor: { value: this.fxRenderTarget.textures[0] },
-			tBlurNormal: { value: this.fxRenderTarget.textures[1] },
 			tDepth: { value: this.renderTargetSource.depthTexture },
-			tBlurDepth: { value: this.fxRenderTarget.textures[2] },
-			tSsao: { value: this.fxRenderTarget.textures[3] }
+			...(config.postProcessing.blur ? {
+					tBlurColor: { value: this.fxRenderTarget.textures[0] },
+					tBlurNormal: { value: this.fxRenderTarget.textures[1] },
+					tBlurDepth: { value: this.fxRenderTarget.textures[2] }
+				} : {}),
+			...(config.postProcessing.ssao ? { tSsao: { value: this.fxRenderTarget.textures[3] } } : {})
 		});
 
 		const pass = new PostProcessingPass(passData);
@@ -309,7 +374,7 @@ export default class PostProcessing {
 
 		// main
 		Renderer.instance.setRenderTarget(this.renderTargetSource);
-		Renderer.instance.render(Renderer.scene, Renderer.camera);
+		Renderer.instance.render(this.targetScene, this.targetScene.camera);
 
 		// blur
 		this.fxPass.render(this.scene, this.camera);
@@ -344,8 +409,8 @@ export default class PostProcessing {
 				samples: 0,
 				format: RGBAFormat,
 				type: HalfFloatType,
-				minFilter: LinearFilter,
-				magFilter: LinearFilter,
+				minFilter: NearestFilter,
+				magFilter: NearestFilter,
 				generateMipmaps: false,
 				depthBuffer: useDepth,
 				stencilBuffer: false,

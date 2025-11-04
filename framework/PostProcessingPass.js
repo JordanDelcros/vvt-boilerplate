@@ -165,7 +165,17 @@ export default class PostProcessingPass {
 
 			for( const name in this.material.uniforms ){
 
-				if( !this.material.uniforms.hasOwnProperty(name) || Renderer.uniforms[name] === this.material.uniforms[name] || this.material.uniforms[name].value.isTexture || this.material.uniforms[name].value.isMatrix4 || this.material.uniforms[name].value.isMatrix3 || this.material.uniforms[name].value.isMatrix2 ) continue;
+				console.log(name, this.material.uniforms[name])
+
+				if(
+					!this.material.uniforms.hasOwnProperty(name) ||
+					this.material.uniforms[name].value === undefined ||
+					Renderer.uniforms[name] === this.material.uniforms[name] ||
+					this.material.uniforms[name].value.isTexture ||
+					this.material.uniforms[name].value.isMatrix4 ||
+					this.material.uniforms[name].value.isMatrix3 ||
+					this.material.uniforms[name].value.isMatrix2
+				) continue;
 
 				folder.addBinding(this.material.uniforms[name], "value", { label: name });
 
