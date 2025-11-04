@@ -23,8 +23,8 @@ export default {
 	},
 	postProcessing: {
 		enabled: true,
-		ssao: false,
-		blur: false
+		ssao: true,
+		blur: true
 	},
 	configurator: {
 		// toggle configurator tool

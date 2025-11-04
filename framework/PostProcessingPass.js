@@ -54,7 +54,10 @@ export default class PostProcessingPass {
 			resolution: { value: target.resolution }
 		});
 
+		console.log(name, uniforms)
+
 		this.material = new RawShaderMaterial({
+			name,
 			glslVersion: GLSL3,
 			defines: {
 				LINEAR_TONE_MAPPING: false,
@@ -164,8 +167,6 @@ export default class PostProcessingPass {
 			const folder = PostProcessing.configurationFolder.addFolder({ title: name });
 
 			for( const name in this.material.uniforms ){
-
-				console.log(name, this.material.uniforms[name])
 
 				if(
 					!this.material.uniforms.hasOwnProperty(name) ||
