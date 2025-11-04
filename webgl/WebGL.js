@@ -32,13 +32,13 @@ export default class WebGL {
 		Renderer.setToneMapping(ACESFilmicToneMapping);
 
 		Renderer.postProcessing.addPass({
-			name: "fx",
+			name: "post-fx",
 			defines: {
-				USE_BLOOM: config.postProcessing.blur,
-				USE_SSAO: config.postProcessing.ssao
+				USE_BLOOM: config.postprocessing.blur,
+				USE_SSAO: config.postprocessing.ssao
 			},
 			uniforms: {
-				bloom: { value: 0.25 }
+				bloom: { value: 0.15 }
 			},
 			program: `
 
@@ -52,7 +52,8 @@ export default class WebGL {
 				// bloom
 				#ifdef USE_BLOOM
 				vec4 blur = texture(tBlurColor, vUv);
-				outputColor.rgb = 1.0 - (1.0 - outputColor.rgb) * (1.0 - blur.rgb * bloom);
+				// outputColor.rgb = 1.0 - (1.0 - outputColor.rgb) * (1.0 - blur.rgb * bloom);
+				outputColor.rgb = mix(outputColor.rgb, blur.rgb, bloom);
 				#endif
 
 				outColor = outputColor;

@@ -1,5 +1,5 @@
 import { Assets, Configurator, Renderer, PostProcessingPass } from "#framework";
-import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
+import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Vector3, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
 import config from "#root/config.js";
 
 const TRIANGLE = new BufferGeometry()
@@ -35,9 +35,10 @@ export default class PostProcessing {
 		this.renderTargetSource = this.createRenderTarget(["color", "normal"]);
 		this.renderTargetA = this.createRenderTarget(["color", "normal"], false);
 		this.renderTargetB = this.createRenderTarget(["color", "normal"], false);
+		this.blurRenderTarget = this.createRenderTarget([...(config.postprocessing.blur ? ["blurColor", "blurNormal", "blurDepth"] : [])], false, 0.5);
 		this.fxRenderTarget = this.createRenderTarget([
-			...(config.postProcessing.blur ? ["blurColor", "blurNormal", "blurDepth"] : []),
-			...(config.postProcessing.ssao ? ["ssao"] : [])
+			...(config.postprocessing.blur ? ["blurColor", "blurNormal", "blurDepth"] : []),
+			...(config.postprocessing.ssao ? ["ssao"] : [])
 		], false, 0.5);
 
 		this.useFx = this.fxRenderTarget.textures.length > 0;
@@ -49,17 +50,17 @@ export default class PostProcessing {
 			target: this.renderTargetB,
 			defines: {
 				OUTPUT: "color",
-				USE_BLUR: config.postProcessing.blur,
-				USE_SSAO: config.postProcessing.ssao
+				USE_BLUR: config.postprocessing.blur,
+				USE_SSAO: config.postprocessing.ssao
 			},
 			uniforms: {
 				tDepth: { value: this.renderTargetSource.depthTexture },
-				...(config.postProcessing.blur ? {
+				...(config.postprocessing.blur ? {
 					tBlurColor: { value: this.getFxTexture("blurColor") },
 					tBlurNormal: { value: this.getFxTexture("blurNormal") },
 					tBlurDepth: { value: this.getFxTexture("blurDepth") }
 				} : {}),
-				...(config.postProcessing.ssao ? {
+				...(config.postprocessing.ssao ? {
 					tSsao: { value: this.getFxTexture("ssao") }
 				} : {})
 			},
@@ -93,74 +94,134 @@ export default class PostProcessing {
 
 		if( this.useFx ){
 
+			const blurSamples = config.postprocessing.blur && 8;
+			const ssaoSamples = config.postprocessing.ssao && 32;
+
+			if( blurSamples ){
+
+				this.blurPass = new PostProcessingPass({
+					name: "pre-blur",
+					autoSource: false,
+					source: this.renderTargetSource,
+					target: this.blurRenderTarget,
+					defines: {
+						BLUR_SAMPLES: blurSamples
+					},
+					uniforms: {
+						tDepth: { value: this.renderTargetSource.depthTexture },
+						tNoise: { value: Assets.get("/maps/blue-noise.png") },
+						blurRadius: { value: 3 },
+						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
+						blurNoiseForce: { value: 0.001 }
+					},
+					preprogram: `
+						vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
+
+							vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
+
+							vec2 horizontal = vec2(texelSize.x, 0.0);
+							vec2 vertical = vec2(0.0, texelSize.y);
+
+							vec4 blurred = blurCoeffs[0] * texture(map, uv + noise);
+
+							for( int sampleIndex = 1; sampleIndex < BLUR_SAMPLES; sampleIndex += 2 ){
+								float w0 = blurCoeffs[sampleIndex];
+								float w1 = blurCoeffs[sampleIndex + 1];
+								float w = w0 + w1;
+								float offset = float(sampleIndex) + w1 / w;
+								
+								blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
+								blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
+
+								blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
+								blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
+							}
+
+							return blurred * 0.5;
+
+						}
+					`,
+					program: `
+						float ratio = screenSize.x / screenSize.y;
+						vec3 noise = texture(tNoise, fract(vUv * 5.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
+
+						outBlurColor = blurMap(tColor, vUv, noise.rb * blurNoiseForce);
+						outBlurNormal = blurMap(tNormal, vUv, noise.rb * blurNoiseForce);
+						outBlurDepth = blurMap(tDepth, vUv, noise.rb * blurNoiseForce);
+					`
+				});
+
+			}
+
+			const sources = {
+				textures: [
+					...this.renderTargetSource.textures,
+					...(blurSamples ? this.blurRenderTarget.textures : [])
+				]
+			};
+
 			this.fxPass = new PostProcessingPass({
 				name: "fx",
 				autoSource: false,
-				source: this.renderTargetSource,
+				source: sources,
 				target: this.fxRenderTarget,
 				defines: {
-					USE_BLUR: config.postProcessing.blur,
-					USE_SSAO: config.postProcessing.ssao,
-					BLUR_SAMPLES: 5
+					USE_BLUR: config.postprocessing.blur,
+					BLUR_SAMPLES: blurSamples,
+					USE_SSAO: config.postprocessing.ssao,
+					SSAO_SAMPLES: ssaoSamples
 				},
 				uniforms: {
 					...Renderer.uniforms,
 					tDepth: { value: this.renderTargetSource.depthTexture },
 					tNoise: { value: Assets.get("/maps/blue-noise.png") },
-					noiseScale: { value: 1 },
-					cameraNear: { value: 0 },
-					cameraFar: { value: 100 },
-					projectionMatrix: { value: this.targetScene?.camera.projectionMatrix ?? new Matrix4() },
-					inverseProjectionMatrix: { value: this.targetScene?.camera.projectionMatrixInverse ?? new Matrix4() },
-					...(config.postProcessing.blur ? {
-						blurRadius: { value: 10 },
-						blurNoiseForce: { value: 0.005 }
+					...(config.postprocessing.blur ? {
+						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
+						blurRadius: { value: 3 },
+						blurNoiseForce: { value: 0.001 }
 					} : {}),
-					...(config.postProcessing.ssao ? {
-						ssaoRadius: { value: 1.2 },
-						ssaoStrength: { value: 1.5 },
-						ssaoBias: { value: 0.1 },
+					...(config.postprocessing.ssao ? {
+						cameraNear: { value: 0 },
+						cameraFar: { value: 100 },
+						projectionMatrix: { value: this.targetScene?.camera.projectionMatrix ?? new Matrix4() },
+						inverseProjectionMatrix: { value: this.targetScene?.camera.projectionMatrixInverse ?? new Matrix4() },
+						ssaoKernel: { value: PostProcessing.createKernelUniform(ssaoSamples) },
+						ssaoRadius: { value: 2 },
+						ssaoStrength: { value: 2 },
+						ssaoBias: { value: 0.05 },
 						ssaoThreshold: { value: 50 }
 					} : {})
 				},
 				preprogram: `
-					#ifdef USE_SSAO
-					const int KERNEL_SIZE = 32;
-					const vec3 SSAO_KERNEL[KERNEL_SIZE] = vec3[KERNEL_SIZE](
-						vec3(0.04977, -0.04471, 0.04996),
-						vec3(0.01457, 0.01653, 0.00224),
-						vec3(-0.04065, -0.01937, 0.03193),
-						vec3(0.01378, -0.09158, 0.04092),
-						vec3(0.05599, 0.05979, 0.05766),
-						vec3(0.09227, 0.04428, 0.01545),
-						vec3(-0.10735, -0.06234, 0.06188),
-						vec3(-0.08715, 0.03156, 0.06918),
-						vec3(0.03774, -0.02742, 0.02002),
-						vec3(-0.00086, -0.05653, 0.00019),
-						vec3(0.01609, 0.00377, 0.00659),
-						vec3(-0.02122, 0.02321, 0.02315),
-						vec3(-0.05764, -0.13482, 0.06833),
-						vec3(-0.15181, -0.08413, 0.12407),
-						vec3(0.15193, 0.05302, 0.04687),
-						vec3(-0.06122, -0.02021, 0.05006),
-						vec3(0.00543, -0.00584, 0.00674),
-						vec3(0.01027, -0.00361, 0.01683),
-						vec3(-0.01753, 0.00847, 0.01045),
-						vec3(-0.00934, -0.01904, 0.01651),
-						vec3(0.18639, 0.11002, 0.12346),
-						vec3(0.01315, 0.01936, 0.02574),
-						vec3(-0.03949, -0.01089, 0.02835),
-						vec3(0.01493, 0.03651, 0.02484),
-						vec3(-0.04623, 0.02024, 0.01409),
-						vec3(-0.03451, -0.03516, 0.03435),
-						vec3(0.02524, 0.02076, 0.04482),
-						vec3(-0.00556, -0.00848, 0.02042),
-						vec3(0.17157, -0.16829, 0.11833),
-						vec3(-0.10866, 0.06592, 0.05347),
-						vec3(-0.01419, -0.13747, 0.07126),
-						vec3(0.12352, 0.15173, 0.10208)
-					);
+					#ifdef USE_BLUR
+					vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
 
+						vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
+
+						vec2 horizontal = vec2(texelSize.x, 0.0);
+						vec2 vertical = vec2(0.0, texelSize.y);
+
+						vec4 blurred = blurCoeffs[0] * texture(map, uv + noise);
+
+						for( int sampleIndex = 1; sampleIndex < BLUR_SAMPLES; sampleIndex += 2 ){
+							float w0 = blurCoeffs[sampleIndex];
+							float w1 = blurCoeffs[sampleIndex + 1];
+							float w = w0 + w1;
+							float offset = float(sampleIndex) + w1 / w;
+							
+							blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
+							blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
+
+							blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
+							blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
+						}
+
+						return blurred * 0.5;
+
+					}
+					#endif
+
+					#ifdef USE_SSAO
 					float linearizeDepth( float depth, float near, float far ){
 
 						return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
@@ -175,42 +236,6 @@ export default class PostProcessing {
 
 					}
 					#endif
-
-					#ifdef USE_BLUR
-					const int M = 4;
-					const float coeffs[M + 1] = float[M + 1](
-						0.19947114020071635,
-						0.17467622497531212,
-						0.12098536225957168,
-						0.06559408169628264,
-						0.02780101304479639
-					);
-
-					vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
-						vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
-
-						vec2 horizontal = vec2(texelSize.x, 0.0);
-						vec2 vertical = vec2(0.0, texelSize.y);
-
-						vec4 blurred = coeffs[0] * texture(map, uv + noise);
-
-						for( int i = 1; i < 4; i += 2 ){
-							float w0 = coeffs[i];
-							float w1 = coeffs[i + 1];
-							float w = w0 + w1;
-							float offset = float(i) + w1 / w;
-							
-							blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
-							blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
-
-							blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
-							blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
-						}
-
-						return blurred * 0.5;
-
-					}
-					#endif
 				`,
 				program: `
 					float ratio = screenSize.x / screenSize.y;
@@ -218,9 +243,9 @@ export default class PostProcessing {
 
 					// blurs
 					#ifdef USE_BLUR
-					outBlurColor = blurMap(tColor, vUv, noise.rb * blurNoiseForce);
-					outBlurNormal = blurMap(tNormal, vUv, noise.rb * blurNoiseForce);
-					outBlurDepth = blurMap(tDepth, vUv, noise.rb * blurNoiseForce);
+					outBlurColor = blurMap(tBlurColor, vUv, noise.rb * blurNoiseForce);
+					outBlurNormal = blurMap(tBlurNormal, vUv, noise.rb * blurNoiseForce);
+					outBlurDepth = blurMap(tBlurDepth, vUv, noise.rb * blurNoiseForce);
 					#endif
 
 					// ssao
@@ -252,12 +277,12 @@ export default class PostProcessing {
 							tbn = mat3(tangent, bitangent, viewNormal);
 						}
 
-						float dynamicRadius = ssaoRadius * clamp(depth / 10.0, 0.1, 3.0);
+						float dynamicRadius = ssaoRadius * clamp(depth / cameraFar, 0.1, 3.0);
 
 						float occlusion = 0.0;
-						for( int i = 0; i < KERNEL_SIZE; i++ ){
+						for( int sampleIndex = 0; sampleIndex < SSAO_SAMPLES; sampleIndex++ ){
 
-							vec3 samplePos = tbn * SSAO_KERNEL[i];
+							vec3 samplePos = tbn * ssaoKernel[sampleIndex];
 							samplePos = viewPos + samplePos * dynamicRadius;
 
 							vec4 offset = projectionMatrix * vec4(samplePos, 1.0);
@@ -279,7 +304,7 @@ export default class PostProcessing {
 
 						}
 
-						ssao = 1.0 - clamp(occlusion / float(KERNEL_SIZE) * ssaoStrength, 0.0, 1.0);
+						ssao = 1.0 - clamp(occlusion / float(SSAO_SAMPLES) * ssaoStrength, 0.0, 1.0);
 
 					}
 
@@ -305,7 +330,7 @@ export default class PostProcessing {
 					{ text: "blur normal", value: "blurNormal" },
 					{ text: "depth", value: "depth" },
 					{ text: "blur depth", value: "blurDepth" },
-					...(config.postProcessing.ssao ? [{ text: "ssao", value: "ssao" }] : [])
+					...(config.postprocessing.ssao ? [{ text: "ssao", value: "ssao" }] : [])
 				]
 			}).on("change", ({ value }) => {
 
@@ -328,9 +353,7 @@ export default class PostProcessing {
 
 		this.targetScene = scene;
 
-		if( this.isSetup && this.useFx ){
-
-			console.log(this.fxPass)
+		if( this.isSetup && this.useFx && config.postprocessing.ssao ){
 
 			this.fxPass.material.uniforms.cameraNear.value = scene.camera.near;
 			this.fxPass.material.uniforms.cameraFar.value = scene.camera.far;
@@ -366,12 +389,12 @@ export default class PostProcessing {
 
 		Object.assign(passData.uniforms, {
 			tDepth: { value: this.renderTargetSource.depthTexture },
-			...(config.postProcessing.blur ? {
+			...(config.postprocessing.blur ? {
 				tBlurColor: { value: this.getFxTexture("blurColor") },
 				tBlurNormal: { value: this.getFxTexture("blurNormal") },
 				tBlurDepth: { value: this.getFxTexture("blurDepth") }
 			} : {}),
-			...(config.postProcessing.ssao ? {
+			...(config.postprocessing.ssao ? {
 				tSsao: { value: this.getFxTexture("ssao") }
 			} : {})
 		});
@@ -390,7 +413,12 @@ export default class PostProcessing {
 		Renderer.instance.render(this.targetScene, this.targetScene.camera);
 
 		// blur
-		if( this.useFx ) this.fxPass.render(this.scene, this.camera);
+		if( this.useFx ){
+
+			this.blurPass?.render(this.scene, this.camera);
+			this.fxPass.render(this.scene, this.camera);
+
+		}
 
 		let lastRenderTarget = this.renderTargetSource;
 		// passes
@@ -442,6 +470,55 @@ export default class PostProcessing {
 		this.renderTargets.push(renderTarget);
 
 		return renderTarget;
+
+	}
+	static createSplittedCoeffsUniform( size, sigma ){
+
+		if( size < 1 ) size = 1;
+		if( !sigma ) sigma = 0.3 * size + 0.8;
+
+		const coeffs = new Float32Array(size + 1);
+		let sum = 0.0;
+
+		for( let index = 0; index <= size; index++ ){
+
+			const x = index / sigma;
+			coeffs[index] = Math.exp(-0.5 * x * x);
+			sum += (index === 0 ? 1 : 2) * coeffs[index];
+
+		}
+
+		for( let index = 0; index < coeffs.length; index++ ){
+
+			coeffs[index] /= sum;
+
+		}
+
+		return coeffs;
+
+	}
+	static createKernelUniform( size = 32 ){
+
+		const kernel = new Array();
+
+		for( let index = 0; index < size; index++ ){
+
+			const vector = new Vector3(
+				Math.random() * 2 - 1,
+				Math.random() * 2 - 1,
+				Math.random()
+			);
+
+			vector.normalize().multiplyScalar(Math.random());
+
+			const scale = index / size;
+			vector.multiplyScalar(0.1 + 0.9 * scale * scale);
+
+			kernel.push(vector);
+
+		}
+
+		return kernel;
 
 	}
 	static patchMaterial( material ){

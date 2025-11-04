@@ -53,4 +53,6 @@ body,
 
 .tp-dfwv {
 	z-index: 999;
+	max-height: calc(100svh - 16px);
+	overflow: auto;
 }

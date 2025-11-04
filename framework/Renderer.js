@@ -76,7 +76,7 @@ export default class Renderer {
 
 		INSTANCE = new WebGLRenderer({
 			canvas,
-			antialias: config.renderer.antialias && !config.postProcessing.enabled,
+			antialias: config.renderer.antialias && !config.postprocessing.enabled,
 			alpha: config.renderer.a,
 			powerPreference: "high-performance"
 		});
@@ -198,7 +198,6 @@ export default class Renderer {
 		SCENE?.dispose();
 
 		SCENE = scene;
-		console.log("SET SCENE");
 		POST_PROCESSING?.setScene(scene);
 
 	}

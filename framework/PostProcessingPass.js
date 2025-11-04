@@ -54,8 +54,6 @@ export default class PostProcessingPass {
 			resolution: { value: target.resolution }
 		});
 
-		console.log(name, uniforms)
-
 		this.material = new RawShaderMaterial({
 			name,
 			glslVersion: GLSL3,
@@ -101,16 +99,19 @@ export default class PostProcessingPass {
 				// auto uniforms
 				${ Object.keys(uniforms).map(( key ) => {
 
-					const type = typeof uniforms[key].value === "number" ? "float" :
-						uniforms[key].value instanceof Vector2 ? "vec2" :
-						uniforms[key].value instanceof Vector3 ? "vec3" :
-						uniforms[key].value instanceof Vector4 ? "vec4" :
-						uniforms[key].value instanceof Matrix4 ? "mat4" :
-						uniforms[key].value instanceof Matrix3 ? "mat3" :
-						uniforms[key].value instanceof Matrix2 ? "mat2" :
-						uniforms[key].value instanceof Texture ? "sampler2D" : "float";
+					const type = PostProcessingPass.getUniformType(uniforms[key].value);
 
-					return `uniform ${type} ${key};`;
+					let uniform = `uniform ${ type } ${ key }`;
+
+					if( Array.isArray(uniforms[key].value) || ArrayBuffer.isView(uniforms[key].value) ){
+
+						uniform += `[${ uniforms[key].value.length }]`;
+
+					}
+
+					uniform += ";";
+
+					return uniform;
 
 				}).join("\n") }
 
@@ -171,7 +172,10 @@ export default class PostProcessingPass {
 				if(
 					!this.material.uniforms.hasOwnProperty(name) ||
 					this.material.uniforms[name].value === undefined ||
+					this.material.uniforms[name].value === null ||
 					Renderer.uniforms[name] === this.material.uniforms[name] ||
+					Array.isArray(this.material.uniforms[name].value) ||
+					ArrayBuffer.isView(this.material.uniforms[name].value) ||
 					this.material.uniforms[name].value.isTexture ||
 					this.material.uniforms[name].value.isMatrix4 ||
 					this.material.uniforms[name].value.isMatrix3 ||
@@ -216,6 +220,22 @@ export default class PostProcessingPass {
 		scene.overrideMaterial = this.material;
 		Renderer.instance.render(scene, camera);
 		scene.overrideMaterial = null;
+
+	}
+	static getUniformType( value ){
+
+		if( Array.isArray(value) || ArrayBuffer.isView(value) ) value = value[0];
+
+		const type = typeof value === "number" ? "float" :
+			value instanceof Vector2 ? "vec2" :
+			value instanceof Vector3 ? "vec3" :
+			value instanceof Vector4 ? "vec4" :
+			value instanceof Matrix2 ? "mat2" :
+			value instanceof Matrix3 ? "mat3" :
+			value instanceof Matrix4 ? "mat4" :
+			value instanceof Texture ? "sampler2D" : "float";
+
+		return type;
 
 	}
 }

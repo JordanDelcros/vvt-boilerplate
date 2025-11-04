@@ -1,5 +1,5 @@
 export default {
-	title: "Sephora Serious Game",
+	title: "Vite Vue Three : Boilerplate",
 	packer: {
 		// toggle asset packing CLI visual progress bar
 		progressBar: false
@@ -21,7 +21,7 @@ export default {
 		antialias: false,
 		alpha: false
 	},
-	postProcessing: {
+	postprocessing: {
 		enabled: true,
 		ssao: true,
 		blur: true
