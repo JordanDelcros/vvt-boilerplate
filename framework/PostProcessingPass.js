@@ -1,12 +1,9 @@
-import { Configurator, PostProcessing, Renderer } from "#framework";
+import Configurator from "./Configurator.js";
+import PostProcessing from "./PostProcessing.js";
+import Renderer from "./Renderer.js";
 import { RawShaderMaterial, ColorManagement, Vector2, Vector3, Vector4, Matrix2, Matrix3, Matrix4, Texture, GLSL3, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping, SRGBTransfer } from "three";
 
 export default class PostProcessingPass {
-	static get vertexShader(){
-
-		return ;
-
-	}
 	constructor({
 		name = "pass",
 		output = false,

@@ -1,4 +1,7 @@
-import { BaseMixin, BaseCamera, EventManager, Renderer } from "#framework";
+import BaseMixin from "./BaseMixin.js";
+import BaseCamera from "./BaseCamera.js";
+import EventManager from "./EventManager.js";
+import Renderer from "./Renderer.js";
 import { Scene, PerspectiveCamera, OrthographicCamera } from "three";
 
 export default class BaseScene extends BaseMixin(Scene) {

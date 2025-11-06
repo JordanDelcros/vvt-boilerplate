@@ -1,4 +1,7 @@
-import { AudioNode, EventManager, Randomness, Renderer } from "#framework";
+import AudioNode from "./AudioNode.js";
+import EventManager from "./EventManager.js";
+import Randomness from "./Randomness.js";
+import Renderer from "./Renderer.js";
 import { AudioListener, Object3D } from "three";
 
 let READY = false;

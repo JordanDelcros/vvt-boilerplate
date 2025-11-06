@@ -1,4 +1,10 @@
-import { Assets, BaseScene, Configurator, EventManager, Mapping, PostProcessing, Timer } from "#framework";
+import Assets from "./Assets.js";
+import BaseScene from "./BaseScene.js";
+import Configurator from "./Configurator.js";
+import EventManager from "./EventManager.js";
+import Mapping from "./Mapping.js";
+import PostProcessing from "./PostProcessing.js";
+import Timer from "./Timer.js";
 import { Scene, WebGLRenderer, Vector3, VSMShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";

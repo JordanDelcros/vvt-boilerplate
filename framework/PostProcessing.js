@@ -1,4 +1,7 @@
-import { Assets, Configurator, Renderer, PostProcessingPass } from "#framework";
+import Assets from "./Assets.js";
+import Configurator from "./Configurator.js";
+import Renderer from "./Renderer.js";
+import PostProcessingPass from "./PostProcessingPass.js";
 import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Vector3, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
 import config from "#root/config.js";
 

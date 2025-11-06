@@ -1,4 +1,5 @@
-import { Assets, Audio } from "#framework";
+import Assets from "./Assets.js";
+import Audio from "./Audio.js";
 
 export default class AudioNode {
 	constructor( target ){

@@ -14,6 +14,10 @@ export default {
 		// toggle database caching
 		useCache: true
 	},
+	database: {
+		name: "VVT_DATABASE",
+		stores: ["CUSTOM_STORE"]
+	},
 	renderer: {
 		// run the webgl only when exiting the loader (user input)
 		awaitLoaderExit: false,

@@ -1,9 +1,10 @@
-import { Configurator } from "#framework";
+import Configurator from "./Configurator.js";
+import config from "#root/config.js";
 
 let DATABASE = null;
 let DEBUG = null;
-const DATABASE_NAME = "VVT_FILES_CACHE";
-const STORE_NAME = "VVT_FILES";
+const CONFIG_STORE = "VVT_CONFIG";
+const STORES = new Set([CONFIG_STORE, ...config.database.stores || []]);
 
 export default class Database {
 	static async setup(){
@@ -12,24 +13,28 @@ export default class Database {
 
 			DEBUG = Configurator.addFolder("Database");
 
-			DEBUG.addButton({
-				title: "flush"
-			})
-			.on("click", () => Database.flush());
+			DEBUG.addButton({ title: "flush" }).on("click", () => Database.flush());
+			DEBUG.addButton({ title: "re-create" }).on("click", () => {
+				Database.delete().then(Database.setup)
+			});
 
 		}
 
 		DATABASE = await new Promise(( resolve, reject ) => {
 
-			const request = indexedDB.open(DATABASE_NAME, 1);
+			const request = indexedDB.open(config.database.name, 1);
 
 			request.onupgradeneeded = ( event ) => {
 
 				const database = event.target.result;
 
-				if( !database.objectStoreNames.contains(STORE_NAME) ){
+				for( const storeName of STORES ){
 
-					database.createObjectStore(STORE_NAME);
+					if( !database.objectStoreNames.contains(storeName) ){
+
+						database.createObjectStore(storeName);
+
+					}
 
 				}
 
@@ -40,20 +45,33 @@ export default class Database {
 
 		});
 
-		const currentVersionning = await Database.get("versionning");
+		const currentVersionning = await Database.get(CONFIG_STORE, "versionning");
 		if( currentVersionning !== __VERSIONNING__ ){
 
 			Database.flush();
-			Database.set("versionning", __VERSIONNING__);
+			Database.set(CONFIG_STORE, "versionning", __VERSIONNING__);
 
 		}
 
 	}
-	static get( key ){
+	static registerStore( storeName ){
+
+		STORES.add(storeName);
+
+	}
+	static getStore( storeName ){
+
+		return {
+			get: ( key ) => Database.get(storeName, key),
+			set: ( key, data ) => Database.set(storeName, key, data)
+		};
+
+	}
+	static get( storeName, key ){
 
 		return new Promise(( resolve, reject ) => {
 
-			const store = DATABASE.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME);
+			const store = DATABASE.transaction(storeName, "readonly").objectStore(storeName);
 			const request = store.get(key);
 			
 			request.onsuccess = ( event ) => {
@@ -67,27 +85,42 @@ export default class Database {
 		});
 
 	}
-	static set( key, data ){
+	static set( storeName, key, data ){
 
-		const store = DATABASE.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME);
+		const store = DATABASE.transaction(storeName, "readwrite").objectStore(storeName);
 
 		store.put(data, key);
 
 	}
 	static flush(){
 
-		const store = DATABASE.transaction(STORE_NAME, "readwrite");
-
 		for( const storeName of DATABASE.objectStoreNames ){
 
-			store.objectStore(storeName).clear();
+			const transaction = DATABASE.transaction(storeName, "readwrite");
+			transaction.objectStore(storeName).clear();
 
 		}
 
 	}
+	static async delete(){
+
+		await new Promise(( resolve, reject ) => {
+
+			Database.dispose();
+
+			const request = indexedDB.deleteDatabase(config.database.name);
+
+			request.onsuccess = resolve;
+			request.onerror = reject;
+			request.onblocked = () => reject("database deletion blocked");
+
+		});
+
+	}
 	static dispose(){
 
-		// DEBUG?.dispose();
+		DATABASE.close();
+		DEBUG?.dispose();
 
 	}
 }

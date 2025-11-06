@@ -1,4 +1,4 @@
-import { EventManager } from "#framework";
+import EventManager from "./EventManager.js";
 import { Pane } from "tweakpane";
 import * as TweakpaneEssentialsPlugin from "@tweakpane/plugin-essentials";
 

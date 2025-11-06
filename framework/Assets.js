@@ -1,5 +1,8 @@
-import { Renderer, Database, Device, Audio } from "#framework";
-import { USAGES, GROUPED } from "#framework/assets-packer/config.js";
+import Renderer from "./Renderer.js";
+import Device from "./Device.js";
+import Audio from "./Audio.js";
+import Database from "./Database.js";
+import { USAGES, GROUPED } from "./assets-packer/config.js";
 import config from "#root/config.js";
 import { Texture, DataTexture, EquirectangularReflectionMapping, LinearSRGBColorSpace } from "three";
 import { FontLoader } from "three/addons/loaders/FontLoader.js";
@@ -9,6 +12,9 @@ import { EXRLoader } from "three/addons/loaders/EXRLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { ref } from "vue";
 import picomatch from "picomatch";
+
+const CACHE_STORE = "VVT_ASSETS_CACHE";
+Database.registerStore(CACHE_STORE);
 
 const REGISTRY = __ASSETS__;
 
@@ -72,7 +78,6 @@ export default class Assets {
 	}
 	static async setup(){
 
-		await Database.setup();
 		await KTX2_LOADER.detectSupport(Renderer.instance);
 		SUPPORT_KTX2 = KTX2_LOADER.workerConfig.etc1Supported && KTX2_LOADER.workerConfig.astcSupported;
 
@@ -182,11 +187,13 @@ export default class Assets {
 
 				output.promise = new Promise(async ( resolve ) => {
 
-					const cachedBuffer = await (config.assets.useCache !== false ? Database.get(usedPath) : null);
+					const cacheStore = Database.getStore(CACHE_STORE);
+
+					const cachedBuffer = await (config.assets.useCache !== false ? cacheStore.get(usedPath) : null);
 
 					let buffer = cachedBuffer ?? await fetch(usedPath).then(response => response.arrayBuffer());
 
-					if( !cachedBuffer ) await Database.set(usedPath, buffer);
+					if( !cachedBuffer ) cacheStore.set(usedPath, buffer);
 
 					if( extension === "json" ){
 

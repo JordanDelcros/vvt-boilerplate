@@ -9,7 +9,7 @@
 
 <script setup>
 
-	import { Assets, Audio, Configurator, Renderer } from "#framework";
+	import { Assets, Audio, Configurator, Database, Renderer } from "#framework";
 	import $store from "#root/store.js";
 	import { ref, onMounted } from "vue";
 	import Loader from "#app/components/Loader.vue";
@@ -38,6 +38,7 @@
 
 	onMounted(async () => {
 
+		await Database.setup();
 		await Assets.setup();
 
 		const files = await Assets.preloadRegistry();

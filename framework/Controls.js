@@ -1,5 +1,6 @@
+import EventManager from "./EventManager.js";
+import Renderer from "./Renderer.js";
 import { Vector2, Raycaster, Scene } from "three";
-import { Renderer, EventManager } from "#framework";
 
 let LOCKED = false;
 

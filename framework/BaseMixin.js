@@ -1,4 +1,5 @@
-import { Configurator, Audio } from "#framework";
+import Configurator from "./Configurator.js";
+import Audio from "./Audio.js";
 import { Object3D } from "three";
 
 export default ( Base ) => class extends Base {

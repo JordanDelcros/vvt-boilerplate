@@ -1,4 +1,7 @@
-import { Animation, BaseMixin, Easings, Renderer } from "#framework";
+import Animation from "./Animation.js";
+import BaseMixin from "./BaseMixin.js";
+import Easings from "./Easings.js";
+import Renderer from "./Renderer.js";
 import { PerspectiveCamera, Object3D, Frustum, Matrix4, Vector3, AudioListener } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
