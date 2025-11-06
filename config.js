@@ -1,5 +1,6 @@
 export default {
 	title: "Vite Vue Three : Boilerplate",
+	description: "VVT (Vite + Vue + Three) boilerplate to create interactive websites",
 	packer: {
 		// toggle asset packing CLI visual progress bar
 		progressBar: false
