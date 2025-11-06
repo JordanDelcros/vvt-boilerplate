@@ -1,7 +1,9 @@
 <template>
 	<Loader/>
-	<TransitionScreen/>
-	<LanguageSelector/>
+	<template v-if="$store.loaded">
+		<TransitionScreen/>
+		<LanguageSelector/>
+	</template>
 	<WebGL ref="$webgl"/>
 </template>
 
