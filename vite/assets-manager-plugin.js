@@ -31,22 +31,31 @@ export default function assetsManagerPlugin( mode ){
 			if( mode === "development" ) registry.forEach(asset => this.addWatchFile(asset.path));
 
 		},
-		async handleHotUpdate({ file, server }){
+		async handleHotUpdate({ file, server, modules }){
 
-			if( !allowReload ) return [];
+			if( /\/webgl\//i.test(file) ){
 
-			allowReload = false;
+				if( !allowReload ) return [];
 
-			await Manager.pack(mode, concurrency);
-			registry = Manager.getRegistry();
+				allowReload = false;
 
-			server.ws.send({ type: "full-reload" });
+				await Manager.pack(mode, concurrency);
+				registry = Manager.getRegistry();
 
-			await new Promise(resolve => setTimeout(resolve, 100));
+				server.ws.send({ type: "full-reload" });
 
-			allowReload = true;
+				await new Promise(resolve => setTimeout(resolve, 100));
 
-			return [];
+				allowReload = true;
+
+				return [];
+
+			}
+			else {
+
+				return modules;
+
+			}
 
 		}
 	}
