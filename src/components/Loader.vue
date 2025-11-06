@@ -21,12 +21,11 @@
 
 <script setup>
 
-	import { Assets, Audio, Randomness, UseStore } from "#framework";
+	import { Assets, Audio, Randomness } from "#framework";
+	import $store from "#root/store.js";
 	import { ref, watch, onMounted } from "vue";
-	import { $assets } from "#app/plugins/Assets.js";
 	import config from "#root/config.js";
 
-	const $store = UseStore();
 	const progress = ref(0);
 	let biggest = 0;
 	let smallest = Infinity;
@@ -49,6 +48,8 @@
 		Audio.unlock();
 
 		isExiting.value = true;
+
+		$store.loaded = true;
 
 	}
 

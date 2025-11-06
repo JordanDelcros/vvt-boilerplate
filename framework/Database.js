@@ -2,8 +2,8 @@ import { Configurator } from "#framework";
 
 let DATABASE = null;
 let DEBUG = null;
-const DATABASE_NAME = "FILES_CACHE";
-const STORE_NAME = "FILES";
+const DATABASE_NAME = "VVT_FILES_CACHE";
+const STORE_NAME = "VVT_FILES";
 
 export default class Database {
 	static async setup(){
@@ -15,7 +15,7 @@ export default class Database {
 			DEBUG.addButton({
 				title: "flush"
 			})
-			.on("click", () => this.flush());
+			.on("click", () => Database.flush());
 
 		}
 
@@ -40,13 +40,21 @@ export default class Database {
 
 		});
 
+		const currentVersionning = await Database.get("versionning");
+		if( currentVersionning !== __VERSIONNING__ ){
+
+			Database.flush();
+			Database.set("versionning", __VERSIONNING__);
+
+		}
+
 	}
-	static get( path ){
+	static get( key ){
 
 		return new Promise(( resolve, reject ) => {
 
 			const store = DATABASE.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME);
-			const request = store.get(path);
+			const request = store.get(key);
 			
 			request.onsuccess = ( event ) => {
 
@@ -59,11 +67,11 @@ export default class Database {
 		});
 
 	}
-	static set( path, data ){
+	static set( key, data ){
 
 		const store = DATABASE.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME);
 
-		store.put(data, path);
+		store.put(data, key);
 
 	}
 	static flush(){

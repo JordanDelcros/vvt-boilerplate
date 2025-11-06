@@ -11,6 +11,7 @@ Packer.useFast(true);
 Packer.add("locales/*.json", Packer.usages.locale, { destination: "/public/locales" });
 
 // Commons
+Packer.add("flags/*.svg", Packer.usages.copy);
 Packer.add("models/**/*.glb", Packer.usages.model, { optimize: true });
 Packer.add("maps/**/*.exr", Packer.usages.copy);
 Packer.add("maps/**/*.png", Packer.usages.texture);

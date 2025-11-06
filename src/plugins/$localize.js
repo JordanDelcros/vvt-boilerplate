@@ -26,11 +26,11 @@ async function loadLocale( path ){
 
 }
 
+// import locales from assets folder and optionally combine them with a i18n schema
 async function importLocales( schema ){
 
-	// Import generated locales
+	// import generated locales from assets
 	const registeredLocales = Assets.registry.filter(asset => asset.usage === USAGES.locale);
-
 	for( const locale of registeredLocales ){
 
 		await loadLocale(locale.generated.prefer);
@@ -69,23 +69,29 @@ export default {
 
 		const currentLocale = ref(base);
 
-		const $l = computed(() => ( path ) => {
+		const $localize = computed(() => ( path ) => {
 
 			return LOCALES[currentLocale.value]?.[path] ?? LOCALES[base]?.[path] ?? path;
 
 		});
 
-		app.config.globalProperties.$l = ( path ) => $l.value(path);
-		app.provide("l", app.config.globalProperties.$l);
+		app.config.globalProperties.$localize = ( path ) => $localize.value(path);
+		app.provide("localize", app.config.globalProperties.$localize);
+		app.config.globalProperties.$l = ( path ) => $localize.value(path);
+		app.provide("l", app.config.globalProperties.$localize);
 
 		app.config.globalProperties.$locales = LOCALES;
 		app.config.globalProperties.$currentLocale = currentLocale.value;
 
+		// allow changing locale
 		app.config.globalProperties.setLocale = ( locale ) => {
+
 			if( LOCALES[locale] === undefined ) return;
 			currentLocale.value = locale;
 			app.config.globalProperties.$currentLocale = locale;
+
 		}
+
 	}
 
 }

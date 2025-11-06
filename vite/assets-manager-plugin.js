@@ -1,5 +1,6 @@
 import Manager from "../manager.js";
 import OS from "os";
+import { version } from "../package.json";
 
 export default function assetsManagerPlugin( mode ){
 
@@ -19,7 +20,8 @@ export default function assetsManagerPlugin( mode ){
 
 			return {
 				define: {
-					__ASSETS__: JSON.stringify(registry)
+					__ASSETS__: JSON.stringify(registry),
+					__VERSIONNING__: JSON.stringify(version)
 				}
 			};
 

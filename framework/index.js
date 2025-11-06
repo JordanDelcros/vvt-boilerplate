@@ -22,8 +22,6 @@ import Randomness from "./Randomness.js";
 import Renderer from "./Renderer.js";
 import Timer from "./Timer.js";
 import Tools from "./Tools.js";
-import UseLocale from "./UseLocale.js";
-import UseStore from "./UseStore.js";
 
 window.$framework = {
 	Animation,
@@ -49,9 +47,7 @@ window.$framework = {
 	Randomness,
 	Renderer,
 	Timer,
-	Tools,
-	UseLocale,
-	UseStore
+	Tools
 };
 
 export {
@@ -78,7 +74,5 @@ export {
 	Randomness,
 	Renderer,
 	Timer,
-	Tools,
-	UseLocale,
-	UseStore
+	Tools
 };

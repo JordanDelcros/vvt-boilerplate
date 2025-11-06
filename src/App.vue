@@ -1,20 +1,38 @@
 <template>
 	<Loader/>
+	<TransitionScreen/>
+	<LanguageSelector/>
 	<WebGL ref="$webgl"/>
 </template>
 
 <script setup>
 
-	import { Assets, Audio, Configurator, Renderer, UseStore } from "#framework";
+	import { Assets, Audio, Configurator, Renderer } from "#framework";
+	import $store from "#root/store.js";
 	import { ref, onMounted } from "vue";
 	import Loader from "#app/components/Loader.vue";
+	import TransitionScreen from "#app/components/TransitionScreen.vue";
+	import LanguageSelector from "#app/components/LanguageSelector.vue";
 	import WebGL from "#app/components/WebGL.vue";
 	import config from "#root/config.js";
 
-	if( config.configurator.enabled ) Configurator.setup();
-
 	const $webgl = ref(null);
-	const $store = UseStore();
+
+	if( config.configurator.enabled ){
+
+		Configurator.setup();
+
+		const storeFolder = Configurator.addFolder("Store");
+
+		for( const key in $store ){
+
+			if( !$store.hasOwnProperty(key) || $store[key] === null || $store[key] instanceof Object ) continue;
+
+			storeFolder.addBinding($store, key);
+
+		}
+
+	}
 
 	onMounted(async () => {
 

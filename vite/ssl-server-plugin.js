@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "fs";
 
 // Check if SSL certificates exist and create server accordingly
-export default function SSLServerIfAvailable(){
+export default function SSLServerIfAvailablePlugin(){
 	
 	const keyPath = `${ process.env.HOME }/Sites/.certificates/localhost-key.pem`;
 	const certPath = `${ process.env.HOME }/Sites/.certificates/localhost.pem`;

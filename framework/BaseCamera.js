@@ -1,4 +1,4 @@
-import { BaseMixin, Renderer } from "#framework";
+import { Animation, BaseMixin, Easings, Renderer } from "#framework";
 import { PerspectiveCamera, Object3D, Frustum, Matrix4, Vector3, AudioListener } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
@@ -31,12 +31,73 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		return this.frustum.containsPoint(VECTOR);
 
 	}
-	update(){
+	copy( camera ){
+
+		this.position.copy(camera.position);
+		this.rotation.copy(camera.rotation);
+		this.fov = camera.fov;
+		this.updateProjectionMatrix();
+
+	}
+	animateTo({ position = null, rotation = null, fov = null, zoom = null, duration = 1000, easing = Easings.inOutSine }){
+
+		this.tween = new Animation({
+			onUpdate: () => this.updateProjectionMatrix(),
+			onComplete: () => this.tween = null,
+		});
+
+		if( position ){
+
+			this.tween.to(this.position, {
+				x: position.x,
+				y: position.y,
+				z: position.z,
+				duration,
+				easing
+			}, 0);
+
+		}
+
+		if( rotation ){
+
+			this.tween.to(this.rotation, {
+				x: rotation.x,
+				y: rotation.y,
+				z: rotation.z,
+				duration,
+				easing
+			}, 0);
+
+		}
+
+		if( fov !== null ){
+
+			this.tween.to(this, {
+				fov,
+				duration,
+				easing
+			}, 0);
+
+		}
+
+		if( zoom !== null ){
+
+			this.tween.to(this, {
+				zoom,
+				duration,
+				easing
+			}, 0);
+
+		}
+
+	}
+	update( currentTime, deltaTime ){
 
 		this.getWorldPosition(this.worldPosition);
 		this.getWorldDirection(this.worldDirection);
 
-		this.controls?.update();
+		this.tween?.update(deltaTime);
+		this.controls?.update(deltaTime);
 
 	}
 	debug( folder ){

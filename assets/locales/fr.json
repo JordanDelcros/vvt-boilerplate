@@ -1,6 +1,6 @@
 {
-	"start": "run",
-	"hello": "hello world",
+	"start": "démarrer",
+	"hello": "bonjour monde",
 	"languages": {
 		"fr": "Français",
 		"en": "English"

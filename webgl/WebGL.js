@@ -34,26 +34,43 @@ export default class WebGL {
 		Renderer.postProcessing.addPass({
 			name: "post-fx",
 			defines: {
-				USE_BLOOM: config.postprocessing.blur,
+				USE_BLUR: config.postprocessing.blur,
 				USE_SSAO: config.postprocessing.ssao
 			},
 			uniforms: {
-				bloom: { value: 0.15 }
+				...Renderer.uniforms,
+				bloom: { value: 0.05 },
+				fresnel: { value: 0.0 },
+				vignetting: { value: 0.88 },
+				vignettingBlur: { value: 0.7 }
 			},
+			preprogram: `
+				const vec3 viewDirection = vec3(0.0, 0.0, -1.0);
+			`,
 			program: `
-
+				vec3 unpackedNormal = unpackRGBToNormal(normal.xyz);
 				vec4 outputColor = color;
 
-				// ssao
+				// rim
+				float rim = max(dot(unpackedNormal * 2.0 - 1.0, viewDirection), 0.0);
+				rim = smoothstep(0.0, 1.0, rim);
+				outputColor.rgb += rim * fresnel;
+
 				#ifdef USE_SSAO
+				// ssao
 				outputColor.rgb *= texture(tSsao, vUv).r;
 				#endif
 
+				#ifdef USE_BLUR
+				vec4 blurColor = texture(tBlurColor, vUv);
+
 				// bloom
-				#ifdef USE_BLOOM
-				vec4 blur = texture(tBlurColor, vUv);
-				// outputColor.rgb = 1.0 - (1.0 - outputColor.rgb) * (1.0 - blur.rgb * bloom);
-				outputColor.rgb = mix(outputColor.rgb, blur.rgb, bloom);
+				outputColor.rgb = mix(outputColor.rgb, blurColor.rgb, bloom);
+
+				// vignetting
+				float vignette = clamp(smoothstep(0.0, 0.15, distance(vUv, vec2(0.5)) / 5.0), 0.0, 1.0) * vignetting;
+				outputColor.rgb = mix(outputColor.rgb, blurColor.rgb, vignette / (10.0 * (1.0 - vignettingBlur)));
+				outputColor.rgb *= 1.0 - vignette;
 				#endif
 
 				outColor = outputColor;

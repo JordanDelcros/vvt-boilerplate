@@ -530,38 +530,36 @@ export default class PostProcessing {
 
 		if( !/<packing>/.test(shader.fragmentShader) ){
 
-			shader.fragmentShader = shader.fragmentShader.replace("void main()", `
+			shader.fragmentShader = shader.fragmentShader.replace("void main() {", `
 				vec3 packNormalToRGB( const in vec3 normal ){
 					return normalize(normal) * 0.5 + 0.5;
 				}
 
-				void main()
+				void main() {
 			`);
 
 		}
 
 		if( !/#define STANDARD/.test(shader.vertexShader) ){
 
-			shader.vertexShader = shader.vertexShader.replace("void main()", `
+			shader.vertexShader = shader.vertexShader.replace("void main() {", `
 				varying vec3 vNormal;
-				void main()
+				void main() {
 			`);
 			shader.vertexShader = shader.vertexShader.replace(/}$/, `
 				vNormal = normalize(normal);
-				}
-			`);
+			}`);
 
 		}
 
 		shader.fragmentShader = shader.fragmentShader
-			.replace("void main()", `
+			.replace("void main() {", `
 				layout(location = 1) out vec4 outNormal;
-				void main()
+				void main() {
 			`)
 			.replace(/}$/, `
 				outNormal = vec4(packNormalToRGB(vNormal), 1.0);
-			}
-			`);
+			}`);
 
 	}
 }

@@ -4,7 +4,6 @@
 
 <script setup>
 
-	import { UseStore } from "#framework";
 	import { ref, shallowRef, onMounted, onUnmounted } from "vue";
 	import WebGL from "#webgl/WebGL.js";
 

@@ -455,6 +455,23 @@ export default class Renderer {
 		target.bumpMap = source.bumpMap;
 
 	}
+	static patchMaterial( material, callback, patchId = "patch" ){
+
+		if( !material.patches ) material.patches = new Set();
+		if( material.patches.has(patchId) ) return;
+		material.patches.add(patchId);
+
+		const previousPatch = material.onBeforeCompile;
+
+		material.onBeforeCompile = ( shader ) => {
+
+			previousPatch?.(shader);
+
+			callback(shader);
+
+		};
+
+	}
 	static dispose(){
 
 		EventManager.off(window, "resize", Renderer.resize);

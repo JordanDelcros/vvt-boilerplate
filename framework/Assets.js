@@ -15,13 +15,24 @@ const REGISTRY = __ASSETS__;
 const PENDING = ref(0);
 const FILES = new Array();
 
-const IMAGES = ["jpg", "jpeg", "png", "webp"];
+const IMAGES = ["jpg", "jpeg", "png", "webp", "svg"];
 const COMPRESSED_IMAGES = ["ktx2"];
 const GLTF = ["gltf", "glb"];
 const AUDIO = ["aac", "mp3", "ogg", "wav", "opus"];
 const VIDEO = ["mov", "mp4", "webm"];
 const FONT = ["woff2", "ttf"];
 const FONT3D = ["font3d"];
+
+const CORRECT_MIME_TYPES = {
+	jpg: "jpeg",
+	svg: "svg+xml",
+	mov: "quicktime",
+	avi: "x-msvideo",
+	mkv: "x-matroska",
+	ogv: "ogg",
+	m4v: "mp4",
+	mp3: "mpeg"
+};
 
 let SUPPORT_KTX2 = false;
 let SUPPORT_WEBM = false;
@@ -194,7 +205,7 @@ export default class Assets {
 					}
 					else if( IMAGES.includes(extension) ){
 
-						const blob = new Blob([buffer]);
+						const blob = new Blob([buffer], { type: Assets.getMimeType("image", extension) });
 
 						if( usage === USAGES.texture ){
 
@@ -259,7 +270,7 @@ export default class Assets {
 
 						output.value = await new Promise(( resolve ) => {
 
-							const blob = new Blob([buffer]);
+							const blob = new Blob([buffer], { type: Assets.getMimeType("video", extension) });
 							const url = URL.createObjectURL(blob);
 
 							const video = document.createElement("video");
@@ -327,6 +338,11 @@ export default class Assets {
 			metadata: metadata[0],
 			grouped: grouped[0]
 		};
+
+	}
+	static getMimeType( category, extension ){
+
+		return `${ category }/${ CORRECT_MIME_TYPES[extension] ?? extension }`;
 
 	}
 	static getPathInfo( path ){
