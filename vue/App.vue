@@ -12,10 +12,10 @@
 	import { Assets, Audio, Configurator, Database, Renderer } from "#framework";
 	import $store from "#root/store.js";
 	import { ref, onMounted } from "vue";
-	import Loader from "#app/components/Loader.vue";
-	import TransitionScreen from "#app/components/TransitionScreen.vue";
-	import LanguageSelector from "#app/components/LanguageSelector.vue";
-	import WebGL from "#app/components/WebGL.vue";
+	import Loader from "#vue/components/Loader.vue";
+	import TransitionScreen from "#vue/components/TransitionScreen.vue";
+	import LanguageSelector from "#vue/components/LanguageSelector.vue";
+	import WebGL from "#vue/components/WebGL.vue";
 	import config from "#root/config.js";
 
 	const $webgl = ref(null);

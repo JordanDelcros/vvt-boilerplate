@@ -15,26 +15,27 @@ export default defineConfig(({ mode }) => ({
 			}
 		}),
 		createAssetsManagerPlugin(mode),
-		vue(),
 		glsl({
 			watch: true,
 			root: resolve(__dirname, "./webgl/shaders/chunks")
 		}),
+		vue()
 	],
 	css: {
 		preprocessorOptions: {
 			scss: {
 				additionalData: `
-					@use "#app/variables.scss" as *;
+					@use "#vue/variables.scss" as *;
 				`
 			}
 		}
 	},
 	resolve: {
 		alias: {
+			"@": resolve(__dirname, "vue"),
 			"#root": __dirname,
 			"#framework": resolve(__dirname, "./framework"),
-			"#app": resolve(__dirname, "./src"),
+			"#vue": resolve(__dirname, "./vue"),
 			"#webgl": resolve(__dirname, "./webgl")
 		}
 	},
