@@ -119,9 +119,7 @@ const Easings = {
 		return progress < 0.5 ? (1 - Easings.outbounce(1 - 2 * progress)) / 2 : (1 + Easings.outbounce(2 * progress - 1)) / 2;
 	},
 	combine( easingA, easingB ){
-		return ( progress ) => {
-			return easingB(easingA(progress));
-		}
+		return ( progress ) => easingB(easingA(progress));
 	}
 };
 

@@ -1,6 +1,37 @@
 @mixin mediaquery( $breakpoint ){
+	// mobile
 	@if $breakpoint == mobile {
-		@media (max-height: 520px) {
+		@media( max-width: 767px ){
+			@content;
+		}
+	}
+	// mobile landscape
+	@else if $breakpoint == mobile-landscape {
+		@media( max-width: 767px ) and (orientation: landscape) {
+			@content;
+		}
+	}
+	// mobile portrait
+	@else if $breakpoint == mobile-landscape {
+		@media( max-width: 767px ) and (orientation: portrait) {
+			@content;
+		}
+	}
+	// tablet
+	@else if $breakpoint == tablet {
+		@media( min-width: 768px ) and (max-width: 1024px ){
+			@content;
+		}
+	}
+	// tablet landscape
+	@else if $breakpoint == tablet-landscape {
+		@media( min-width: 768px ) and (max-width: 1024px ) and (orientation: landscape) {
+			@content;
+		}
+	}
+	// tablet portrait
+	@else if $breakpoint == tablet-portrait {
+		@media( min-width: 768px ) and (max-width: 1024px ) and (orientation: portrait) {
 			@content;
 		}
 	}

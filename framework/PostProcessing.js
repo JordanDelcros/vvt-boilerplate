@@ -242,7 +242,7 @@ export default class PostProcessing {
 				`,
 				program: `
 					float ratio = screenSize.x / screenSize.y;
-					vec3 noise = texture(tNoise, fract(vUv * 5.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
+					vec3 noise = texture(tNoise, fract(vUv * 6.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
 
 					// blurs
 					#ifdef USE_BLUR
@@ -274,13 +274,13 @@ export default class PostProcessing {
 						}
 						else {
 							vec3 randomVec = normalize(noise * 2.0 - 1.0);
-							randomVec.z = sqrt(max(0.0, 1.0 - randomVec.x*randomVec.x - randomVec.y*randomVec.y));
+							randomVec.z = sqrt(max(0.0, 1.0 - randomVec.x * randomVec.x - randomVec.y * randomVec.y));
 							vec3 tangent = normalize(randomVec - viewNormal * dot(randomVec, viewNormal));
 							vec3 bitangent = cross(viewNormal, tangent);
 							tbn = mat3(tangent, bitangent, viewNormal);
 						}
 
-						float dynamicRadius = ssaoRadius * clamp(depth / cameraFar, 0.1, 3.0);
+						float dynamicRadius = ssaoRadius * clamp(depth / ssaoThreshold, 0.1, 3.0);
 
 						float occlusion = 0.0;
 						for( int sampleIndex = 0; sampleIndex < SSAO_SAMPLES; sampleIndex++ ){
@@ -528,6 +528,8 @@ export default class PostProcessing {
 
 		material.onBeforeCompile = ( shader ) => PostProcessing.patchShader(shader);
 
+		return material;
+
 	}
 	static patchShader( shader ){
 
@@ -563,6 +565,8 @@ export default class PostProcessing {
 			.replace(/}$/, `
 				outNormal = vec4(packNormalToRGB(vNormal), 1.0);
 			}`);
+
+		return shader;
 
 	}
 }

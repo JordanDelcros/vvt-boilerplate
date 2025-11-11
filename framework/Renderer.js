@@ -5,7 +5,7 @@ import EventManager from "./EventManager.js";
 import Mapping from "./Mapping.js";
 import PostProcessing from "./PostProcessing.js";
 import Timer from "./Timer.js";
-import { Scene, WebGLRenderer, Vector3, VSMShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
+import { Scene, WebGLRenderer, Vector3, PCFSoftShadowMap, VSMShadowMap, PCFShadowMap, BasicShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import config from "#root/config.js";
@@ -88,7 +88,7 @@ export default class Renderer {
 		});
 
 		INSTANCE.shadowMap.enabled = true;
-		INSTANCE.shadowMap.type = VSMShadowMap;
+		INSTANCE.shadowMap.type = PCFSoftShadowMap;
 
 		if( Configurator.active ){
 
@@ -176,6 +176,33 @@ export default class Renderer {
 
 			});
 
+			DEBUG_FOLDERS.renderer.addBinding(INSTANCE.shadowMap, "enabled", { label: "shadows" })
+				.on("change", ({ value }) => {
+
+					Renderer.scene.traverse(( element ) => {
+
+						if( element.isLight ) element.castShadow = value;
+
+					});
+
+				});
+
+			DEBUG_FOLDERS.renderer.addBlade({
+				view: "list",
+				value: PCFSoftShadowMap,
+				label: "type",
+				options: [
+					{ text: "basic", value: BasicShadowMap },
+					{ text: "pcf", value: PCFShadowMap },
+					{ text: "vsm", value: VSMShadowMap },
+					{ text: "pcf soft", value: PCFSoftShadowMap },
+				]
+			}).on("change", ({ value }) => {
+
+				INSTANCE.shadowMap.type = value;
+
+			});
+
 			DEBUG_FOLDERS.renderer.addBinding(Renderer, "usePostprocessing");
 
 		}
@@ -197,13 +224,16 @@ export default class Renderer {
 		Renderer.setScene(scene ? scene : new BaseScene());
 
 	}
-	static setScene( scene ){
+	static setScene( scene, disposePrevious = false ){
 
 		if( !(scene instanceof BaseScene) ) return console.error("Given scene is not an instance of BaseScene:", scene);
 
-		SCENE?.dispose();
+		SCENE?.onUnmount();
+		if( disposePrevious ) SCENE?.dispose();
+
 
 		SCENE = scene;
+		SCENE.onMount();
 		POST_PROCESSING?.setScene(scene);
 
 	}

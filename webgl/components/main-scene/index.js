@@ -7,8 +7,7 @@ export default class MainScene extends BaseScene {
 
 		super({ fov: 30 });
 
-		this.camera.position.z = 15;
-		this.camera.enableOrbit();
+		this.camera.position.z = 20;
 
 		this.environment = Assets.get("/maps/environment-big.exr");
 
@@ -24,6 +23,11 @@ export default class MainScene extends BaseScene {
 			);
 
 		}
+
+	}
+	onMount(){
+
+		this.camera.enableOrbit();
 
 	}
 }

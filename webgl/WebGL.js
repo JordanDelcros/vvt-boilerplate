@@ -27,7 +27,7 @@ export default class WebGL {
 	run(){
 
 		this.scene = new MainScene();
-		Renderer.setScene(this.scene);
+		Renderer.setScene(this.scene, true);
 
 		Renderer.setToneMapping(ACESFilmicToneMapping);
 

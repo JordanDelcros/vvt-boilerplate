@@ -29,6 +29,16 @@ export default ( Base ) => class extends Base {
 		return Audio.createEmitter(this, options);
 
 	}
+	onMount(){
+
+		this.traverse(element => element !== this && element.onMount?.());
+
+	}
+	onUnmount(){
+
+		this.traverse(element => element !== this && element.onUnmount?.());
+
+	}
 	dispose(){
 
 		this.debugFolder?.dispose();

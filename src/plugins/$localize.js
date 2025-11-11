@@ -13,9 +13,38 @@ async function loadLocale( path ){
 		const name = path.split("/").pop().replace(".json", "");
 		const data = await fetch(path).then(response => response.json());
 
-		if( LOCALES[name] === undefined ) LOCALES[name] = {};
+		if( LOCALES[name] === undefined ) LOCALES[name] = new Object();
 
-		Object.assign(LOCALES[name], data);
+		for( const key in data ){
+
+			let target = LOCALES[name];
+			const chunks = key.split(".");
+
+			for( let index = 0; index < chunks.length; index++ ){
+
+				const chunk = chunks[index];
+				const nextChunk = chunks[index + 1];
+
+				if( target[chunk] === undefined ){
+
+					target[chunk] = /^[0-9]+$/.test(nextChunk) ? new Array() : new Object();
+
+				}
+
+				if( index < (chunks.length - 1) ){
+
+					target = target[chunk];
+
+				}
+				else {
+
+					target[chunk] = data[key];
+
+				}
+
+			}
+
+		}
 
 	}
 	catch( error ){
@@ -71,7 +100,19 @@ export default {
 
 		const $localize = computed(() => ( path ) => {
 
-			return LOCALES[currentLocale.value]?.[path] ?? LOCALES[base]?.[path] ?? path;
+
+			path = path.replace(/\[([0-9]+)\]/g, ".$1");
+			const chunks = path.split(".");
+
+			let target = LOCALES[currentLocale.value];
+
+			for( const chunk of chunks ){
+
+				target = target[chunk];
+
+			}
+
+			return target;
 
 		});
 

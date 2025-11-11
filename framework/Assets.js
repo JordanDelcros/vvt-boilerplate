@@ -50,6 +50,17 @@ KTX2_LOADER.setTranscoderPath("/basis/");
 let USER_VALIDATION_RESOLVE = null;
 const USER_VALIDATION_PROMISE = new Promise(( resolve ) => USER_VALIDATION_RESOLVE = resolve);
 
+const FONT_WEIGHTS = {
+	extralight: "200",
+	light: "300",
+	regular: "400",
+	medium: "500",
+	semibold: "600",
+	bold: "700",
+	extrabold: "800",
+	black: "900"
+};
+
 export default class Assets {
 	static get registry(){
 
@@ -291,8 +302,23 @@ export default class Assets {
 					}
 					else if( FONT.includes(extension) ){
 
+						const lowerCaseName = name.toLowerCase();
+						const weight = [...Object.keys(FONT_WEIGHTS), ...Object.keys(FONT_WEIGHTS)].find(weight => lowerCaseName.includes(weight)) || "regular";
+						const style = ["normal", "italic", "oblique"].find(style => lowerCaseName.includes(style)) || "normal";
+
+						const correctedName = name
+							.replace(new RegExp([weight, style].join("|"), "ig"), "")
+							.replace(/normal|italic|oblique/ig, "")
+							.replace(/[-_]+/g, " ")
+							.trim();
+
 						await document.fonts.ready;
-						output.value = new FontFace(name, buffer);
+						const fontFace = new FontFace(correctedName, buffer, {
+							style,
+							weight: FONT_WEIGHTS[weight] || weight
+						});
+						await fontFace.load();
+						output.value = fontFace;
 						document.fonts.add(output.value);
 
 					}
@@ -306,7 +332,7 @@ export default class Assets {
 					}
 					else {
 
-						console.warn(`Unregistered format "${ extension }"`)
+						console.warn(`Unregistered format "${ extension }"`);
 
 					}
 
