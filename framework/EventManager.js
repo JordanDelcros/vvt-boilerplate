@@ -74,7 +74,7 @@ export default class EventManager {
 		}
 
 	}
-	static trigger( target, type, action ){
+	static trigger( target, type, options ){
 
 		const isNative = typeof target[`on${ type }`] !== "undefined";
 
@@ -88,12 +88,10 @@ export default class EventManager {
 			for( event of EVENTS ){
 
 				if(
-					(target === event.target && type === event.type && action === event.action ) ||// match action
-					(target === event.target && type === event.type && action === undefined ) ||// match type
-					(target === event.target && type === undefined && action === undefined ) // Match target
+					(target === event.target && type === event.type )
 				){
 
-					event.action();
+					event.action(options);
 
 				}
 

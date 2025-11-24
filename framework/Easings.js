@@ -74,18 +74,15 @@ const Easings = {
 		return progress === 0 ? 0 : progress === 1 ? 1 : progress < 0.5 ? Math.pow(2, 20 * progress - 10) / 2 : (2 - Math.pow(2, -20 * progress + 10)) / 2;
 	},
 	// Back
-	inBack( progress ){
-		const acceleration = 0.6;
+	inBack( progress, acceleration = 0.6 ){
 		const adjustment = acceleration + 1;
 		return adjustment * progress * progress * progress - acceleration * progress * progress;
 	},
-	outBack( progress ){
-		const acceleration = 0.6;
+	outBack( progress, acceleration = 0.6 ){
 		const adjustment = acceleration + 1;
 		return 1 + adjustment * Math.pow(progress - 1, 3) + acceleration * Math.pow(progress - 1, 2);
 	},
-	inOutBack( progress ){
-		const acceleration = 0.6;
+	inOutBack( progress, acceleration = 0.6 ){
 		const adjustment = acceleration * 1.525;
 		return progress < 0.5 ? (Math.pow(2 * progress, 2) * ((adjustment + 1) * 2 * progress - adjustment)) / 2 : (Math.pow(2 * progress - 2, 2) * ((adjustment + 1) * (progress * 2 - 2) + adjustment) + 2) / 2;
 	},

@@ -52,12 +52,12 @@ const USER_VALIDATION_PROMISE = new Promise(( resolve ) => USER_VALIDATION_RESOL
 
 const FONT_WEIGHTS = {
 	extralight: "200",
+	extrabold: "800",
 	light: "300",
 	regular: "400",
 	medium: "500",
 	semibold: "600",
 	bold: "700",
-	extrabold: "800",
 	black: "900"
 };
 

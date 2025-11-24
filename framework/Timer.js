@@ -6,6 +6,7 @@ let LAST_RENDER = 0;
 let DELTA_TIME = 0;
 let ANIMATION_FRAME = null;
 
+let tic = true;
 function loop( currentTime ){
 
 	ANIMATION_FRAME = requestAnimationFrame(loop);
@@ -18,9 +19,11 @@ function loop( currentTime ){
 
 	if( DELTA_TIME > 100 && (currentTime - LAST_RENDER) < 1000 ) return;
 
-	ACTIONS.forEach(action => action(currentTime, DELTA_TIME));
+	ACTIONS.forEach(({ callback }) => callback(currentTime, DELTA_TIME, tic));
 
 	LAST_RENDER = currentTime;
+
+	tic = !tic;
 
 }
 
@@ -52,15 +55,22 @@ export default class Timer {
 		cancelAnimationFrame(ANIMATION_FRAME);
 
 	}
-	static add( action ){
+	static add( callback, priority = 0 ){
 
-		if( !ACTIONS.includes(action) ) ACTIONS.push(action);
-		return () => Timer.remove(action);
+		if( !ACTIONS.find(action => action.callback === callback) ){
+
+			ACTIONS.push({ callback, priority });
+
+			ACTIONS.sort(( a, b ) => a.priority - b.priority);
+
+		}
+
+		return () => Timer.remove(callback);
 
 	}
-	static remove( action ){
+	static remove( callback ){
 
-		const index = ACTIONS.indexOf(action);
+		const index = ACTIONS.findIndex(action => action.callback === callback);
 		if( index > 0 ) ACTIONS.splice(index, 1);
 
 	}

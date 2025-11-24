@@ -85,6 +85,9 @@ export default class Device {
 			browser.version = userAgent.match(/MSIE (\d+(?:\.\d+)?)/)?.[1] || userAgent.match(/Trident.*rv:(\d+(?:\.\d+)?)/)?.[1] || "unknown";
 		}
 
+		const supportsPointer = window.PointerEvent !== undefined;
+		const supportsTouch = (supportsPointer && navigator.maxTouchePoints > 0) || "ontouchstart" in window;
+
 		const strongRam = navigator.deviceMemory >= 8;
 		const strongMemory = navigator.hardwareConcurrency >= 8;
 
@@ -103,6 +106,8 @@ export default class Device {
 			edge: browser.name === "edge",
 			opera: browser.name === "opera",
 			ie: browser.name === "ie",
+			pointer: supportsPointer,
+			touch: supportsTouch,
 			portrait: window.innerHeight > window.innerWidth,
 			landscape: window.innerHeight < window.innerWidth,
 			strong: strongRam && strongMemory,

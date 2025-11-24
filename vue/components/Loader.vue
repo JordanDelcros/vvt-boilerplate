@@ -22,7 +22,6 @@
 <script setup>
 
 	import { Assets, Audio, Randomness } from "#framework";
-	import $store from "#root/store.js";
 	import { ref, watch, onMounted } from "vue";
 	import config from "#root/config.js";
 
@@ -48,8 +47,6 @@
 		Audio.unlock();
 
 		isExiting.value = true;
-
-		$store.loaded = true;
 
 	}
 

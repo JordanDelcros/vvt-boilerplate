@@ -179,6 +179,7 @@ export default class Renderer {
 			DEBUG_FOLDERS.renderer.addBinding(INSTANCE.shadowMap, "enabled", { label: "shadows" })
 				.on("change", ({ value }) => {
 
+					INSTANCE.shadowMap.needsUpdate = true;
 					Renderer.scene.traverse(( element ) => {
 
 						if( element.isLight ) element.castShadow = value;
@@ -200,6 +201,13 @@ export default class Renderer {
 			}).on("change", ({ value }) => {
 
 				INSTANCE.shadowMap.type = value;
+				INSTANCE.shadowMap.needsUpdate = true;
+				Renderer.scene.traverse(( element ) => {
+
+					if( element.isLight ) element.castShadow = value;
+					if( element.isMesh ) element.material.needsUpdate = true;
+
+				});
 
 			});
 

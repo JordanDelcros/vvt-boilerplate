@@ -1,4 +1,5 @@
 import { Assets, BaseScene } from "#framework";
+import { DirectionalLight } from "three";
 import Background from "#webgl/components/background";
 import Cube from "#webgl/components/cube";
 
@@ -11,11 +12,16 @@ export default class MainScene extends BaseScene {
 
 		this.environment = Assets.get("/maps/environment-big.exr");
 
+		const light = this.add(DirectionalLight);
+		light.castShadow = true;
+
 		this.add(Background);
 
 		for( let index = 0; index < 10; index++ ){
 			
 			const object = this.add(Cube);
+			object.castShadow = true;
+			object.receiveShadow = true;
 			object.position.set(
 				Math.random() * 5 - 2.5,
 				Math.random() * 5 - 2.5,

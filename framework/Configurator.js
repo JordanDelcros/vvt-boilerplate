@@ -21,7 +21,8 @@ export default class Configurator {
 
 		console.info("Press CTRL+D or 4 fingers to display configurator.");
 
-		PANE = new Pane({ title: "CONFIG", hidden: true });
+		PANE = new Pane({ title: "CONFIG" });
+		PANE.hidden = true;
 		PANE.registerPlugin(TweakpaneEssentialsPlugin);
 
 		FPSGraph = PANE.addBlade({

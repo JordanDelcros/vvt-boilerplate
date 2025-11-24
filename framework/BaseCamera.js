@@ -10,6 +10,8 @@ const MATRIX = new Matrix4();
 const VECTOR = new Vector3();
 const VECTOR_2 = new Vector3();
 const EULER = new Euler();
+const QUATERNION = new Quaternion();
+const QUATERNION_2 = new Quaternion();
 
 export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 	constructor({ fov = 50, ratio = window.innerWidth / window.innerHeight, near = 0.1, far = 100 } = {}){
@@ -42,7 +44,7 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		this.updateProjectionMatrix();
 
 	}
-	animateTo({ container = null, camera = null, position = null, rotation = null, fov = null, zoom = null, duration = 1000, easing = Easings.inOutSine }){
+	animateTo({ container = null, camera = null, position = null, rotation = null, quaternion = null, fov = null, zoom = null, duration = 1000, easing = Easings.inOutSine }){
 
 		this.tween = new Animation({
 			onUpdate: () => this.updateProjectionMatrix(),
@@ -64,15 +66,27 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 
 		}
 
-		rotation = camera ? camera.rotation : rotation;
+		quaternion = camera ? camera.quaternion : quaternion;
+
 		if( rotation ){
 
-			this.tween.to(target.rotation, {
-				x: rotation.x,
-				y: rotation.y,
-				z: rotation.z,
+			quaternion = QUATERNION.setFromEuler(camera ? camera.rotation : rotation);
+
+		}
+
+		if( quaternion ){
+
+			QUATERNION_2.copy(target.quaternion);
+
+			this.tween.to({ progress: 0 }, {
+				progress: 1,
 				duration,
-				easing
+				easing,
+				onUpdate: ({ progress }) => {
+
+					target.quaternion.slerpQuaternions(QUATERNION_2, quaternion, progress);
+
+				}
 			}, 0);
 
 		}
@@ -108,9 +122,16 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		container.parent.worldToLocal(VECTOR);
 
 		MATRIX.identity().lookAt(container.position, VECTOR, container.parent.up);
-		EULER.setFromRotationMatrix(MATRIX);
+		QUATERNION.setFromRotationMatrix(MATRIX);
 
-		this.animateTo({ container, rotation: EULER, fov, zoom, duration, easing });
+		this.animateTo({
+			container,
+			quaternion: QUATERNION,
+			fov,
+			zoom,
+			duration,
+			easing
+		});
 
 	}
 	update( currentTime, deltaTime ){
@@ -138,7 +159,7 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		});
 
 	}
-	enableOrbit() {
+	enableOrbit(){
 
 		if( this.orbit.controls ) return;
 
@@ -158,7 +179,7 @@ export default class BaseCamera extends BaseMixin(PerspectiveCamera) {
 		Configurator.refresh();
 
 	}
-	disableOrbit() {
+	disableOrbit(){
 
 		if( !this.orbit.controls ) return;
 

@@ -21,7 +21,7 @@ export default {
 	},
 	renderer: {
 		// run the webgl only when exiting the loader (user input)
-		awaitLoaderExit: false,
+		awaitLoaderExit: true,
 		// toggle canvas native antialiasing (disabled in case of postprocessing)
 		antialias: false,
 		alpha: false

@@ -100,19 +100,27 @@ export default {
 
 		const $localize = computed(() => ( path ) => {
 
+			try {
 
-			path = path.replace(/\[([0-9]+)\]/g, ".$1");
-			const chunks = path.split(".");
+				path = path.replace(/\[([0-9]+)\]/g, ".$1");
+				const chunks = path.split(".");
 
-			let target = LOCALES[currentLocale.value];
+				let target = LOCALES[currentLocale.value];
 
-			for( const chunk of chunks ){
+				for( const chunk of chunks ){
 
-				target = target[chunk];
+					target = target[chunk];
+
+				}
+
+				return target;
 
 			}
+			catch( error ){
 
-			return target;
+				return path;
+
+			}
 
 		});
 
