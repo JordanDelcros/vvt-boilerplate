@@ -10,7 +10,7 @@ export default class MainScene extends BaseScene {
 
 		this.camera.position.z = 20;
 
-		this.environment = Assets.get("/maps/environment-big.exr");
+		this.environment = Assets.get("/envs/sky-big.exr");
 
 		const light = this.add(DirectionalLight);
 		light.castShadow = true;

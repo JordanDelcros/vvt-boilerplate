@@ -3,6 +3,9 @@ import Configurator from "./Configurator.js";
 import Renderer from "./Renderer.js";
 import PostProcessingPass from "./PostProcessingPass.js";
 import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Vector3, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
+import blueNoiseChunk from "#webgl/shaders/chunks/blue-noise.glsl?raw";
+import blurMapChunk from "#webgl/shaders/chunks/blur-map.glsl?raw";
+import SSAOChunk from "#webgl/shaders/chunks/ssao.glsl?raw";
 import config from "#root/config.js";
 
 const TRIANGLE = new BufferGeometry()
@@ -97,8 +100,12 @@ export default class PostProcessing {
 
 		if( this.useFx ){
 
-			const blurSamples = config.postprocessing.blur && 8;
+			const blurSamples = config.postprocessing.blur && 32;
 			const ssaoSamples = config.postprocessing.ssao && 32;
+
+			const noiseMap = Assets.get("/noises/blue-noise.png");
+			noiseMap.minFilter = NearestFilter;
+			noiseMap.magFilter = NearestFilter;
 
 			if( blurSamples ){
 
@@ -108,49 +115,25 @@ export default class PostProcessing {
 					source: this.renderTargetSource,
 					target: this.blurRenderTarget,
 					defines: {
-						BLUR_SAMPLES: blurSamples
+						BLUR_MAP_SAMPLES: blurSamples
 					},
 					uniforms: {
 						tDepth: { value: this.renderTargetSource.depthTexture },
-						tNoise: { value: Assets.get("/maps/blue-noise.png") },
-						blurRadius: { value: 3 },
+						tNoise: { value: noiseMap },
+						blurRadius: { value: 0.001 },
 						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
 						blurNoiseForce: { value: 0.001 }
 					},
 					preprogram: `
-						vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
-
-							vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
-
-							vec2 horizontal = vec2(texelSize.x, 0.0);
-							vec2 vertical = vec2(0.0, texelSize.y);
-
-							vec4 blurred = blurCoeffs[0] * texture(map, uv + noise);
-
-							for( int sampleIndex = 1; sampleIndex < BLUR_SAMPLES; sampleIndex += 2 ){
-								float w0 = blurCoeffs[sampleIndex];
-								float w1 = blurCoeffs[sampleIndex + 1];
-								float w = w0 + w1;
-								float offset = float(sampleIndex) + w1 / w;
-								
-								blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
-								blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
-
-								blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
-								blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
-							}
-
-							return blurred * 0.5;
-
-						}
+						${ blurMapChunk }
 					`,
 					program: `
 						float ratio = screenSize.x / screenSize.y;
-						vec3 noise = texture(tNoise, fract(vUv * 5.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
+						${ blueNoiseChunk }
 
-						outBlurColor = blurMap(tColor, vUv, noise.rb * blurNoiseForce);
-						outBlurNormal = blurMap(tNormal, vUv, noise.rb * blurNoiseForce);
-						outBlurDepth = blurMap(tDepth, vUv, noise.rb * blurNoiseForce);
+						outBlurColor = blurMap(tColor, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
+						outBlurNormal = blurMap(tNormal, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
+						outBlurDepth = blurMap(tDepth, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
 					`
 				});
 
@@ -170,148 +153,52 @@ export default class PostProcessing {
 				target: this.fxRenderTarget,
 				defines: {
 					USE_BLUR: config.postprocessing.blur,
-					BLUR_SAMPLES: blurSamples,
+					BLUR_MAP_SAMPLES: blurSamples,
 					USE_SSAO: config.postprocessing.ssao,
 					SSAO_SAMPLES: ssaoSamples
 				},
 				uniforms: {
 					...Renderer.uniforms,
 					tDepth: { value: this.renderTargetSource.depthTexture },
-					tNoise: { value: Assets.get("/maps/blue-noise.png") },
+					tNoise: { value: noiseMap },
 					...(config.postprocessing.blur ? {
 						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
-						blurRadius: { value: 3 },
+						blurRadius: { value: 0.001 },
 						blurNoiseForce: { value: 0.001 }
 					} : {}),
 					...(config.postprocessing.ssao ? {
-						cameraNear: { value: 0 },
-						cameraFar: { value: 100 },
+						viewMatrix: { value: this.targetScene?.camera.viewMatrix ?? new Matrix4() },
 						projectionMatrix: { value: this.targetScene?.camera.projectionMatrix ?? new Matrix4() },
-						inverseProjectionMatrix: { value: this.targetScene?.camera.projectionMatrixInverse ?? new Matrix4() },
+						viewMatrix: { value: this.targetScene?.camera.projectionMatrixInverse ?? new Matrix4() },
 						ssaoKernel: { value: PostProcessing.createKernelUniform(ssaoSamples) },
-						ssaoRadius: { value: 2 },
+						ssaoRadius: { value: 0.5 },
 						ssaoStrength: { value: 2 },
-						ssaoBias: { value: 0.05 },
-						ssaoThreshold: { value: 50 }
+						ssaoBias: { value: 0.15 }
 					} : {})
 				},
 				preprogram: `
 					#ifdef USE_BLUR
-					vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 noise) {
-
-						vec2 texelSize = 1.0 / vec2(textureSize(map, 0));
-
-						vec2 horizontal = vec2(texelSize.x, 0.0);
-						vec2 vertical = vec2(0.0, texelSize.y);
-
-						vec4 blurred = blurCoeffs[0] * texture(map, uv + noise);
-
-						for( int sampleIndex = 1; sampleIndex < BLUR_SAMPLES; sampleIndex += 2 ){
-							float w0 = blurCoeffs[sampleIndex];
-							float w1 = blurCoeffs[sampleIndex + 1];
-							float w = w0 + w1;
-							float offset = float(sampleIndex) + w1 / w;
-							
-							blurred += w * texture(map, uv + horizontal * offset * blurRadius + noise);
-							blurred += w * texture(map, uv - horizontal * offset * blurRadius + noise);
-
-							blurred += w * texture(map, uv + vertical * offset * blurRadius + noise);
-							blurred += w * texture(map, uv - vertical * offset * blurRadius + noise);
-						}
-
-						return blurred * 0.5;
-
-					}
+					${ blurMapChunk }
 					#endif
 
 					#ifdef USE_SSAO
-					float linearizeDepth( float depth, float near, float far ){
-
-						return (2.0 * near * far) / (far + near - (depth * 2.0 - 1.0) * (far - near));
-
-					}
-
-					vec3 getViewPosition( vec2 screenPosition, float depth ){
-
-						vec4 clipSpacePosition = vec4(screenPosition * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-						vec4 viewSpacePosition = inverseProjectionMatrix * clipSpacePosition;
-						return viewSpacePosition.xyz / viewSpacePosition.w;
-
-					}
+					${ SSAOChunk }
 					#endif
 				`,
 				program: `
 					float ratio = screenSize.x / screenSize.y;
-					vec3 noise = texture(tNoise, fract(vUv * 6.0 * vec2(ratio, 1.0) + mod(currentTime * 0.01, 1.0))).xyz * 2.0 - 1.0;
+					${ blueNoiseChunk }
 
 					// blurs
 					#ifdef USE_BLUR
-					outBlurColor = blurMap(tBlurColor, vUv, noise.rb * blurNoiseForce);
-					outBlurNormal = blurMap(tBlurNormal, vUv, noise.rb * blurNoiseForce);
-					outBlurDepth = blurMap(tBlurDepth, vUv, noise.rb * blurNoiseForce);
+					outBlurColor = blurMap(tBlurColor, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
+					outBlurNormal = blurMap(tBlurNormal, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
+					outBlurDepth = blurMap(tBlurDepth, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
 					#endif
 
 					// ssao
 					#ifdef USE_SSAO
-					vec3 unpackedNormal = unpackRGBToNormal(texture(tNormal, vUv).rgb);
-					float rawDepth = texture(tDepth, vUv).r;
-					float linearDepth = linearizeDepth(rawDepth, cameraNear, cameraFar);
-
-					float ssao = 1.0;
-					if( rawDepth < 0.9999 && linearDepth < ssaoThreshold ){
-
-						vec3 viewPos = getViewPosition(vUv, rawDepth);
-						float depth = -viewPos.z;
-						vec3 viewNormal = normalize((inverseProjectionMatrix * vec4(unpackedNormal, 0.0)).xyz);
-
-						mat3 tbn;
-						vec3 fallback = vec3(0.0, 0.0, -1.0);
-						if( abs(dot(viewNormal, fallback)) > 0.95 ){
-							vec3 up = abs(viewNormal.x) > 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-							vec3 tangent = normalize(cross(up, viewNormal));
-							vec3 bitangent = cross(viewNormal, tangent);
-							tbn = mat3(tangent, bitangent, viewNormal);
-						}
-						else {
-							vec3 randomVec = normalize(noise * 2.0 - 1.0);
-							randomVec.z = sqrt(max(0.0, 1.0 - randomVec.x * randomVec.x - randomVec.y * randomVec.y));
-							vec3 tangent = normalize(randomVec - viewNormal * dot(randomVec, viewNormal));
-							vec3 bitangent = cross(viewNormal, tangent);
-							tbn = mat3(tangent, bitangent, viewNormal);
-						}
-
-						float dynamicRadius = ssaoRadius * clamp(depth / ssaoThreshold, 0.1, 3.0);
-
-						float occlusion = 0.0;
-						for( int sampleIndex = 0; sampleIndex < SSAO_SAMPLES; sampleIndex++ ){
-
-							vec3 samplePos = tbn * ssaoKernel[sampleIndex];
-							samplePos = viewPos + samplePos * dynamicRadius;
-
-							vec4 offset = projectionMatrix * vec4(samplePos, 1.0);
-							offset.xyz /= offset.w;
-							offset.xy = offset.xy * 0.5 + 0.5;
-
-							if( offset.x < 0.0 || offset.x > 1.0 || offset.y < 0.0 || offset.y > 1.0 ) continue;
-
-							float sampleRawDepth = texture(tDepth, offset.xy).r;
-							if( sampleRawDepth >= 0.9999 ) continue;
-
-							vec3 sampleViewPos = getViewPosition(offset.xy, sampleRawDepth);
-
-							float rangeCheck = smoothstep(0.0, 1.0, dynamicRadius / abs(viewPos.z - sampleViewPos.z));
-							float bias = ssaoBias * depth * 0.05;
-							float occluded = smoothstep(0.0, 1.0, (sampleViewPos.z - samplePos.z - bias) / (bias * 4.0));
-
-							occlusion += occluded * rangeCheck;
-
-						}
-
-						ssao = 1.0 - clamp(occlusion / float(SSAO_SAMPLES) * ssaoStrength, 0.0, 1.0);
-
-					}
-
-					outSsao = vec4(vec3(ssao), 1.0);
+					outSsao = ssao(noise);
 					#endif
 				`
 			});
@@ -358,10 +245,8 @@ export default class PostProcessing {
 
 		if( this.isSetup && this.useFx && config.postprocessing.ssao ){
 
-			this.fxPass.material.uniforms.cameraNear.value = scene.camera.near;
-			this.fxPass.material.uniforms.cameraFar.value = scene.camera.far;
 			this.fxPass.material.uniforms.projectionMatrix.value = scene.camera.projectionMatrix;
-			this.fxPass.material.uniforms.inverseProjectionMatrix.value = scene.camera.projectionMatrixInverse;
+			this.fxPass.material.uniforms.viewMatrix.value = scene.camera.projectionMatrixInverse;
 
 		}
 
@@ -510,12 +395,10 @@ export default class PostProcessing {
 				Math.random() * 2 - 1,
 				Math.random() * 2 - 1,
 				Math.random()
-			);
+			).normalize();
 
-			vector.normalize().multiplyScalar(Math.random());
-
-			const scale = index / size;
-			vector.multiplyScalar(0.1 + 0.9 * scale * scale);
+			let scale = index / size;
+			vector.multiplyScalar(0.1 + 0.9 * (scale * scale));
 
 			kernel.push(vector);
 
@@ -532,18 +415,6 @@ export default class PostProcessing {
 
 	}
 	static patchShader( shader ){
-
-		if( !/<packing>/.test(shader.fragmentShader) ){
-
-			shader.fragmentShader = shader.fragmentShader.replace("void main() {", `
-				vec3 packNormalToRGB( const in vec3 normal ){
-					return normalize(normal) * 0.5 + 0.5;
-				}
-
-				void main() {
-			`);
-
-		}
 
 		if( !/#define STANDARD/.test(shader.vertexShader) ){
 
@@ -563,7 +434,7 @@ export default class PostProcessing {
 				void main() {
 			`)
 			.replace(/}$/, `
-				outNormal = vec4(packNormalToRGB(vNormal), 1.0);
+				outNormal = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0);
 			}`);
 
 		return shader;

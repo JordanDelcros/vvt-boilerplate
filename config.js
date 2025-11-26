@@ -21,15 +21,16 @@ export default {
 	},
 	renderer: {
 		// run the webgl only when exiting the loader (user input)
-		awaitLoaderExit: true,
+		awaitLoaderExit: false,
 		// toggle canvas native antialiasing (disabled in case of postprocessing)
 		antialias: false,
 		alpha: false
 	},
 	postprocessing: {
 		enabled: true,
+		blur: true,
 		ssao: true,
-		blur: true
+		motion: true
 	},
 	configurator: {
 		// toggle configurator tool

@@ -5,7 +5,7 @@ import EventManager from "./EventManager.js";
 import Mapping from "./Mapping.js";
 import PostProcessing from "./PostProcessing.js";
 import Timer from "./Timer.js";
-import { Scene, WebGLRenderer, Vector3, PCFSoftShadowMap, VSMShadowMap, PCFShadowMap, BasicShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
+import { Scene, WebGLRenderer, Vector2, PCFSoftShadowMap, VSMShadowMap, PCFShadowMap, BasicShadowMap, NoColorSpace, SRGBColorSpace, LinearSRGBColorSpace, NoToneMapping, LinearToneMapping, ReinhardToneMapping, CineonToneMapping, ACESFilmicToneMapping, AgXToneMapping, NeutralToneMapping } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import config from "#root/config.js";
@@ -13,7 +13,7 @@ import config from "#root/config.js";
 let INSTANCE = null;
 let SCENE = null;
 
-const SCREEN_SIZE = new Vector3();
+const SCREEN_SIZE = new Vector2();
 const GLOBAL_UNIFORMS = {
 	currentTime: { value: 0 },
 	deltaTime: { value: 0 },
@@ -216,7 +216,7 @@ export default class Renderer {
 		}
 
 		POST_PROCESSING = new PostProcessing({ toneMapping: Renderer.instance.toneMapping });
-		POST_PROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y, Renderer.screenSize.z);
+		POST_PROCESSING.setSize(Renderer.screenSize.x, Renderer.screenSize.y);
 
 		EventManager.on(window, "resize", Renderer.resize);
 

@@ -16,9 +16,11 @@ function nearestPow2( value ){
 
 async function generateKTX2( source, output, downscale = false, quality = 4, fast = false ){
 
+	let resize = false;
 	const metadata = await sharp(source).metadata();
 	const width = nearestPow2(metadata.width) * (downscale ? 0.5 : 1);
 	const height = nearestPow2(metadata.height) * (downscale ? 0.5 : 1);
+	if( width !== metadata.width || height !== metadata.height ) resize = true;
 
 	return execAsync(`
 		toktx\
@@ -26,7 +28,7 @@ async function generateKTX2( source, output, downscale = false, quality = 4, fas
 		--threads 8\
 		--t2\
 		--encode uastc\
-		--resize ${ width }x${ height }\
+		${ resize ? `--resize ${ width }x${ height }` : "" }\
 		--assign_oetf linear\
 		--uastc_quality ${ fast ? 0 : 4 }\
 		--uastc_rdo_l 1.0\
@@ -52,18 +54,31 @@ export default function packTexture( source ){
 
 			const output = `${ source.destination }/${ source.name }`;
 
+			const { fast = false, lossless = false } = source.options;
+
 			source.generated = {
-				high: `${ output }.high.ktx2`,
-				medium: `${ output }.medium.ktx2`,
-				low: `${ output }.low.ktx2`,
+				high: `${ output }.high.${ lossless ? "webp" : "ktx2" }`,
 				fallback: `${ output }.fallback.webp`
 			};
 
-			const { fast } = source.options;
+			if( lossless ){
 
-			await generateKTX2(source.file, source.generated.high, false, 4, fast);
-			await generateKTX2(source.file, source.generated.medium, false, 2, fast);
-			await generateKTX2(source.file, source.generated.low, true, 0, fast);
+				await sharp(source.file).flip().webp({ lossless: true }).toFile(source.generated.high);
+
+			}
+			else {
+
+				Object.assign(source.generated, {
+					medium: `${ output }.medium.ktx2`,
+					low: `${ output }.low.ktx2`
+				});
+
+				await generateKTX2(source.file, source.generated.high, false, 4, fast);
+				await generateKTX2(source.file, source.generated.medium, false, 2, fast);
+				await generateKTX2(source.file, source.generated.low, true, 0, fast);
+
+			}
+
 			await sharp(source.file).flip().webp({ lossless: true }).toFile(source.generated.fallback);
 
 			return source;
