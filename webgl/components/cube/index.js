@@ -1,5 +1,5 @@
 import { Assets, BaseMesh, PostProcessing } from "#framework";
-import { BoxGeometry, MeshStandardMaterial } from "three";
+import { BoxGeometry, MeshStandardMaterial, LinearFilter } from "three";
 
 export default class Cube extends BaseMesh {
 	constructor(){
@@ -8,6 +8,9 @@ export default class Cube extends BaseMesh {
 
 		const geometry = new BoxGeometry(5, 5, 5);
 		const material = new MeshStandardMaterial({ map });
+
+		map.minFilter = map.magFilter = LinearFilter;
+
 		PostProcessing.patchMaterial(material);
 
 		super(geometry, material);

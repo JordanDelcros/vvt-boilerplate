@@ -1,6 +1,6 @@
 vec4 blurMap( in sampler2D map, in vec2 uv, in vec2 direction, in vec2 noise ){
 
-	vec4 blurred = blurCoeffs[0] * texture(map, uv + noise);
+	vec4 blurred = blurCoeffs[0] * texture(map, uv);
 
 	for( int sampleIndex = 1; sampleIndex < BLUR_MAP_SAMPLES; sampleIndex += 2 ){
 

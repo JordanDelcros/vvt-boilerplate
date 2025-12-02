@@ -3,9 +3,11 @@ import Configurator from "./Configurator.js";
 import Renderer from "./Renderer.js";
 import PostProcessingPass from "./PostProcessingPass.js";
 import { BufferGeometry, BufferAttribute, Scene, WebGLRenderTarget, Vector3, Matrix4, RGBAFormat, HalfFloatType, UnsignedShortType, OrthographicCamera, RawShaderMaterial, Mesh, DepthTexture, GLSL3, NearestFilter } from "three";
-import blueNoiseChunk from "#webgl/shaders/chunks/blue-noise.glsl?raw";
-import blurMapChunk from "#webgl/shaders/chunks/blur-map.glsl?raw";
-import SSAOChunk from "#webgl/shaders/chunks/ssao.glsl?raw";
+import blurProgram from "#webgl/shaders/programs/blur-program.glsl";
+import blurPreprogram from "#webgl/shaders/programs/blur-preprogram.glsl";
+import fxProgram from "#webgl/shaders/programs/fx-program.glsl";
+import fxPreprogram from "#webgl/shaders/programs/fx-preprogram.glsl";
+import outputProgram from "#webgl/shaders/programs/output-program.glsl";
 import config from "#root/config.js";
 
 const TRIANGLE = new BufferGeometry()
@@ -70,23 +72,7 @@ export default class PostProcessing {
 					tSsao: { value: this.getFxTexture("ssao") }
 				} : {})
 			},
-			program: `
-				vec4 depth = texture(tDepth, vUv);
-				
-				#ifdef USE_BLUR
-				vec4 blurColor = texture(tBlurColor, vUv);
-				vec4 blurNormal = texture(tBlurNormal, vUv);
-				vec4 blurDepth = texture(tBlurDepth, vUv);
-				blurDepth.r = 1.0 - blurDepth.r;
-				#endif
-				
-				#ifdef USE_SSAO
-				vec4 ssao = texture(tSsao, vUv);
-				#endif
-
-				outColor = OUTPUT;
-				outNormal = normal;
-			`
+			program: outputProgram
 		});
 
 		this.scene.add(new Mesh(TRIANGLE, this.outputPass.material));
@@ -124,17 +110,8 @@ export default class PostProcessing {
 						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
 						blurNoiseForce: { value: 0.001 }
 					},
-					preprogram: `
-						${ blurMapChunk }
-					`,
-					program: `
-						float ratio = screenSize.x / screenSize.y;
-						${ blueNoiseChunk }
-
-						outBlurColor = blurMap(tColor, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
-						outBlurNormal = blurMap(tNormal, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
-						outBlurDepth = blurMap(tDepth, vUv, vec2(blurRadius, 0.0), noise.rb * blurNoiseForce);
-					`
+					preprogram: blurPreprogram,
+					program: blurProgram
 				});
 
 			}
@@ -176,31 +153,8 @@ export default class PostProcessing {
 						ssaoBias: { value: 0.15 }
 					} : {})
 				},
-				preprogram: `
-					#ifdef USE_BLUR
-					${ blurMapChunk }
-					#endif
-
-					#ifdef USE_SSAO
-					${ SSAOChunk }
-					#endif
-				`,
-				program: `
-					float ratio = screenSize.x / screenSize.y;
-					${ blueNoiseChunk }
-
-					// blurs
-					#ifdef USE_BLUR
-					outBlurColor = blurMap(tBlurColor, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
-					outBlurNormal = blurMap(tBlurNormal, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
-					outBlurDepth = blurMap(tBlurDepth, vUv, vec2(0.0, blurRadius), noise.rb * blurNoiseForce);
-					#endif
-
-					// ssao
-					#ifdef USE_SSAO
-					outSsao = ssao(noise);
-					#endif
-				`
+				preprogram: fxPreprogram,
+				program: fxProgram
 			});
 
 		}

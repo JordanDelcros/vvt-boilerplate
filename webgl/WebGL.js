@@ -1,10 +1,6 @@
-import { Assets, Audio, Configurator, Input, Renderer, Timer } from "#framework";
+import { Assets, Audio, Configurator, Input, PostProcessing, Renderer, Timer } from "#framework";
 import MainScene from "#webgl/components/main-scene";
 import { ACESFilmicToneMapping } from "three";
-import { GTAOPass } from "three/addons/postprocessing/GTAOPass.js";
-import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
-import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
-import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import config from "#root/config.js";
 
 export default class WebGL {
@@ -45,9 +41,10 @@ export default class WebGL {
 				vignettingBlur: { value: 0.7 },
 				cameraNear: { value: 0.1 },
 				cameraFar: { value: 100 },
-				focusDistance: { value: 20 },
-				focusSize: { value: 5 },
-				focusFade: { value: 5 }
+				focusNear: { value: 5 },
+				focusNearRamp: { value: 5 },
+				focusFar: { value: 30 },
+				focusFarRamp: { value: 5 },
 			},
 			preprogram: `
 				const vec3 viewDirection = vec3(0.0, 0.0, -1.0);
@@ -85,9 +82,22 @@ export default class WebGL {
 
 				// Depth of field
 				float depth = linearizeDepth(texture(tDepth, vUv).r);
-				float dist = abs(depth - focusDistance);
-				float focus = smoothstep(focusSize, focusSize + focusFade, dist);
-				outputColor = mix(outputColor, blurColor, focus);
+				float blurDepth = linearizeDepth(texture(tBlurDepth, vUv).r);
+				float focusFactor = 0.0;
+				float foregroundFactor = 0.0;
+				if( depth > focusFar ){
+
+					focusFactor = (depth - focusFar) / focusFarRamp;
+
+				}
+				if( blurDepth < focusNear ){
+
+					foregroundFactor = (focusNear - blurDepth) / focusNearRamp;
+
+				}
+				focusFactor = max(focusFactor, foregroundFactor);
+				focusFactor = clamp(focusFactor, 0.0, 1.0);
+				outputColor = mix(outputColor, blurColor, focusFactor);
 
 				// bloom
 				outputColor.rgb = mix(outputColor.rgb, blurColor.rgb, bloom);
@@ -102,8 +112,6 @@ export default class WebGL {
 				outNormal = normal;
 			`
 		});
-
-		console.log(pass)
 
 		Timer.add(this.update.bind(this));
 
