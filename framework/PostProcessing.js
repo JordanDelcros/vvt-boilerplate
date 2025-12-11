@@ -108,7 +108,7 @@ export default class PostProcessing {
 						tNoise: { value: noiseMap },
 						blurRadius: { value: 0.001 },
 						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
-						blurNoiseForce: { value: 0.001 }
+						blurNoiseForce: { value: 0.0005 }
 					},
 					preprogram: blurPreprogram,
 					program: blurProgram
@@ -141,7 +141,7 @@ export default class PostProcessing {
 					...(config.postprocessing.blur ? {
 						blurCoeffs: { value: PostProcessing.createSplittedCoeffsUniform(blurSamples) },
 						blurRadius: { value: 0.001 },
-						blurNoiseForce: { value: 0.001 }
+						blurNoiseForce: { value: 0.0005 }
 					} : {}),
 					...(config.postprocessing.ssao ? {
 						viewMatrix: { value: this.targetScene?.camera.viewMatrix ?? new Matrix4() },
@@ -359,6 +359,15 @@ export default class PostProcessing {
 		}
 
 		return kernel;
+
+	}
+	static patchModel( model ){
+
+		model.traverse(( element ) => {
+
+			if( element.isMesh ) PostProcessing.patchMaterial(element.material);
+
+		});
 
 	}
 	static patchMaterial( material ){
